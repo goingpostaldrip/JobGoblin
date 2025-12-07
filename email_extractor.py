@@ -20,7 +20,8 @@ EXCLUDE_PATTERNS = [
     r'noreply', r'no-reply', r'no_reply', r'donotreply', r'do-not-reply',
     r'notification', r'notification-email', r'alert', r'automated',
     r'mailer-daemon', r'postmaster', r'support+', r'info+', r'test@',
-    r'example\.com', r'localhost', r'invalid', r'fake', r'spam'
+    r'example\.com', r'localhost', r'invalid', r'fake', r'spam',
+    r'sentry', r'@sentry\.', r'jobtoday\.tools'
 ]
 
 # File extensions that shouldn't be in emails

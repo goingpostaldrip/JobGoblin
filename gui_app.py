@@ -43,6 +43,11 @@ class JobScraperGUI:
         self.extracted_emails = {}
         self.archive_file = "output/scrape_archive.json"
         
+        # Archive selection tracking for email manager
+        self.current_archive_entry = None
+        self.current_archive_id = None
+        self.current_archive_emails = {}
+        
         # Ensure output directory exists
         os.makedirs("output", exist_ok=True)
         
@@ -317,6 +322,19 @@ class JobScraperGUI:
     def setup_email_tab(self):
         """Setup email manager tab"""
         
+        # Top section - Archive Selection
+        archive_frame = ttk_boot.Labelframe(self.email_tab, text="📂 Select Archive to Extract Emails From", bootstyle="info", padding=15)
+        archive_frame.pack(fill=X, padx=10, pady=10)
+        
+        archive_selection_row = ttk_boot.Frame(archive_frame)
+        archive_selection_row.pack(fill=X)
+        
+        ttk_boot.Label(archive_selection_row, text="Archive:").pack(side=LEFT, padx=5)
+        self.archive_dropdown = ttk_boot.Combobox(archive_selection_row, width=50, state="readonly")
+        self.archive_dropdown.pack(side=LEFT, padx=5, fill=X, expand=YES)
+        
+        ttk_boot.Button(archive_selection_row, text="📧 Load Emails from Selected Archive", command=self.load_archive_emails, bootstyle="info", width=30).pack(side=LEFT, padx=5)
+        
         # Top section - Stats
         stats_frame = ttk_boot.Labelframe(self.email_tab, text="📊 Email Statistics", bootstyle="primary", padding=15)
         stats_frame.pack(fill=X, padx=10, pady=10)
@@ -340,17 +358,25 @@ class JobScraperGUI:
         btn_row = ttk_boot.Frame(actions_frame)
         btn_row.pack(fill=X)
         
-        ttk_boot.Button(btn_row, text="📧 Send Emails (50 max)", command=self.send_emails_action, bootstyle="success", width=20).pack(side=LEFT, padx=5)
+        ttk_boot.Button(btn_row, text="📧 Send Emails to Contacts", command=self.send_email_from_archive, bootstyle="success", width=25).pack(side=LEFT, padx=5)
         ttk_boot.Button(btn_row, text="📊 View Email CSV", command=self.view_email_csv, bootstyle="info", width=20).pack(side=LEFT, padx=5)
         ttk_boot.Button(btn_row, text="🔄 Refresh Stats", command=self.refresh_email_stats, bootstyle="primary", width=20).pack(side=LEFT, padx=5)
         ttk_boot.Button(btn_row, text="🔓 Reset Daily Limit", command=self.reset_email_limit, bootstyle="warning", width=20).pack(side=LEFT, padx=5)
         
         # Email list
-        list_frame = ttk_boot.Labelframe(self.email_tab, text="📋 Extracted Emails", bootstyle="info", padding=10)
+        list_frame = ttk_boot.Labelframe(self.email_tab, text="📋 Extracted Emails from Selected Archive", bootstyle="info", padding=10)
         list_frame.pack(fill=BOTH, expand=YES, padx=10, pady=10)
         
         self.email_list_text = scrolledtext.ScrolledText(list_frame, wrap=tk.WORD, font=("Courier", 9))
         self.email_list_text.pack(fill=BOTH, expand=YES)
+        
+        # Initialize current archive entry tracking
+        self.current_archive_entry = None
+        self.current_archive_id = None
+        self.current_archive_emails = {}
+        
+        # Populate archive dropdown on startup
+        self.refresh_archive_dropdown()
 
     def setup_help_tab(self):
         """Setup help and support tab"""
@@ -941,20 +967,53 @@ Tips
             messagebox.showerror("Save Error", f"Failed to save results:\n{str(e)}")
     
     def auto_save_results(self):
-        """Automatically save results"""
+        """Automatically save results with timestamped files"""
         os.makedirs("output", exist_ok=True)
+        
+        # Create timestamped filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # Save JSON
         with open("output/web_jobs_ultimate.json", 'w', encoding='utf-8') as f:
             json.dump(self.results, f, indent=2)
         
-        # Save TXT
+        # Save TXT (main file)
         lines = []
         for r in self.results:
             lines.append(f"{r.get('title','')} | {r.get('url','')} | {r.get('engine','')}")
         
         with open("output/web_jobs_ultimate.txt", 'w', encoding='utf-8') as f:
             f.write('\n'.join(lines))
+        
+        # Save timestamped TXT file for this scrape (organized by date/time)
+        timestamped_filename = f"output/scrape_{timestamp}.txt"
+        with open(timestamped_filename, 'w', encoding='utf-8') as f:
+            f.write(f"JobGoblin - Scraped Results\n")
+            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Total Jobs: {len(self.results)}\n")
+            f.write(f"Total Emails: {len(self.extracted_emails)}\n")
+            f.write("="*80 + "\n\n")
+            
+            for idx, job in enumerate(self.results, 1):
+                f.write(f"[{idx}] {job.get('title', 'No Title')}\n")
+                f.write(f"URL: {job.get('url', 'N/A')}\n")
+                f.write(f"Engine: {job.get('engine', 'N/A')}\n")
+                if job.get('snippet'):
+                    f.write(f"Description: {job['snippet']}\n")
+                f.write("\n" + "-"*80 + "\n\n")
+            
+            # Add emails section if extracted
+            if self.extracted_emails:
+                f.write("\n" + "="*80 + "\n")
+                f.write("EXTRACTED EMAILS\n")
+                f.write("="*80 + "\n\n")
+                for idx, (email, info) in enumerate(self.extracted_emails.items(), 1):
+                    domains = ', '.join(list(info.get('domains', []))[:3])
+                    f.write(f"[{idx}] {email}\n")
+                    f.write(f"    Domains: {domains}\n")
+                    f.write(f"    Sources: {len(info.get('sources', []))}\n\n")
+        
+        self.update_status(f"✅ Saved timestamped results to: {timestamped_filename}")
     
     def export_jobs_to_txt(self):
         """Export scraped jobs to a custom TXT file"""
@@ -1110,10 +1169,10 @@ Total Jobs: {len(self.results)}
         btn_frame = ttk_boot.Frame(dialog)
         btn_frame.pack(pady=20)
         
-        send_btn = ttk_boot.Button(btn_frame, text="Send Email", command=send_email, bootstyle="success", width=12)
+        send_btn = ttk_boot.Button(btn_frame, text="Send Email", command=send_email, bootstyle="success", width=15)
         send_btn.pack(side=LEFT, padx=10)
         
-        cancel_btn = ttk_boot.Button(btn_frame, text="Cancel", command=dialog.destroy, bootstyle="danger", width=12)
+        cancel_btn = ttk_boot.Button(btn_frame, text="Cancel", command=dialog.destroy, bootstyle="danger", width=15)
         cancel_btn.pack(side=LEFT, padx=10)
     
     def load_archive(self):
@@ -1128,9 +1187,20 @@ Total Jobs: {len(self.results)}
             self.archive_data = []
         
         self.refresh_archive_display()
+        self.refresh_archive_dropdown()
     
     def save_to_archive(self, keywords, locations, engines, jobs_count, emails_count):
         """Save current scrape to archive"""
+        # Convert sets to lists for JSON serialization
+        serializable_emails = {}
+        for email, info in self.extracted_emails.items():
+            serializable_emails[email] = {
+                'email': email,
+                'domains': list(info.get('domains', [])),  # Convert set to list
+                'sources': list(info.get('sources', [])),
+                'job_titles': list(info.get('job_titles', []))  # Convert set to list
+            }
+        
         entry = {
             'id': len(self.archive_data) + 1,
             'timestamp': datetime.now().isoformat(),
@@ -1139,7 +1209,9 @@ Total Jobs: {len(self.results)}
             'engines': engines,
             'jobs_found': jobs_count,
             'emails_found': emails_count,
-            'results': self.results[:100]  # Save first 100 results
+            'results': self.results[:100],
+            'extracted_emails': serializable_emails,
+            'all_results': self.results
         }
         
         self.archive_data.append(entry)
@@ -1149,6 +1221,7 @@ Total Jobs: {len(self.results)}
             json.dump(self.archive_data, f, indent=2)
         
         self.refresh_archive_display()
+        self.refresh_archive_dropdown()
     
     def refresh_archive_display(self):
         """Refresh the archive treeview"""
@@ -1214,6 +1287,10 @@ Total Jobs: {len(self.results)}
         if not entry:
             return
         
+        # Store current archive entry for email manager to use
+        self.current_archive_entry = entry
+        self.current_archive_id = entry_id
+        
         # Display details
         self.archive_details.delete(1.0, tk.END)
         
@@ -1230,27 +1307,29 @@ Jobs Found: {entry.get('jobs_found', 0)}
 Emails Found: {entry.get('emails_found', 0)}
 
 {'='*80}
-SAMPLE RESULTS (first 10 jobs):
+ALL JOB LINKS & TITLES:
 {'='*80}
 
 """
         self.archive_details.insert(tk.END, details)
         
-        for idx, result in enumerate(entry.get('results', [])[:10], 1):
-            result_text = f"\n[{idx}] {result.get('title', 'No Title')}\n    URL: {result.get('url', 'N/A')}\n    Engine: {result.get('engine', 'N/A')}\n"
+        # Show all results with links and titles
+        all_results = entry.get('all_results', entry.get('results', []))
+        for idx, result in enumerate(all_results, 1):
+            result_text = f"[{idx}] {result.get('title', 'No Title')}\n    🔗 {result.get('url', 'N/A')}\n    Engine: {result.get('engine', 'N/A')}\n\n"
             self.archive_details.insert(tk.END, result_text)
         
         # Add extracted emails section if emails were found
         if entry.get('emails_found', 0) > 0 and entry.get('extracted_emails'):
-            self.archive_details.insert(tk.END, f"\n\n{'='*80}\nEXTRACTED EMAILS (first 20):\n{'='*80}\n\n")
+            self.archive_details.insert(tk.END, f"\n{'='*80}\nEXTRACTED EMAILS (ALL):\n{'='*80}\n\n")
             
             emails = entry.get('extracted_emails', {})
-            for idx, (email, info) in enumerate(list(emails.items())[:20], 1):
+            for idx, (email, info) in enumerate(list(emails.items()), 1):
                 domains = ', '.join(list(info.get('domains', []))[:3])
                 email_text = f"[{idx}] {email}\n    Domains: {domains}\n    Sources: {len(info.get('sources', []))}\n\n"
                 self.archive_details.insert(tk.END, email_text)
         elif entry.get('emails_found', 0) == 0:
-            self.archive_details.insert(tk.END, f"\n\n{'='*80}\nNO EMAILS FOUND\n{'='*80}\n")
+            self.archive_details.insert(tk.END, f"\n{'='*80}\nNO EMAILS FOUND\n{'='*80}\n")
 
     
     def clear_archive(self):
@@ -1333,6 +1412,187 @@ SAMPLE RESULTS (first 10 jobs):
                 messagebox.showinfo("Limit Reset", "Daily email limit has been reset")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to reset limit:\n{str(e)}")
+    
+    def refresh_archive_dropdown(self):
+        """Refresh the archive dropdown with current archives"""
+        archive_options = []
+        for entry in reversed(self.archive_data):
+            archive_id = entry.get('id')
+            timestamp = datetime.fromisoformat(entry['timestamp']).strftime("%Y-%m-%d %H:%M")
+            keywords = ', '.join(entry.get('keywords', []))[:40]
+            label = f"[ID {archive_id}] {timestamp} - {keywords}"
+            archive_options.append(label)
+        
+        self.archive_dropdown['values'] = archive_options
+        
+        if archive_options:
+            self.archive_dropdown.current(0)  # Select first/most recent
+    
+    def load_archive_emails(self):
+        """Load emails from selected archive into email manager display"""
+        if not self.archive_dropdown.get():
+            messagebox.showwarning("No Selection", "Please select an archive first")
+            return
+        
+        # Extract archive ID from dropdown selection
+        dropdown_value = self.archive_dropdown.get()
+        try:
+            archive_id = int(dropdown_value.split('[ID ')[1].split(']')[0])
+        except:
+            messagebox.showerror("Error", "Could not parse archive ID")
+            return
+        
+        # Find the archive entry
+        entry = next((e for e in self.archive_data if e['id'] == archive_id), None)
+        if not entry:
+            messagebox.showerror("Error", "Archive not found")
+            return
+        
+        # Store current archive and emails
+        self.current_archive_entry = entry
+        self.current_archive_id = archive_id
+        self.current_archive_emails = entry.get('extracted_emails', {})
+        
+        # Display emails in the email list
+        self.email_list_text.delete(1.0, tk.END)
+        
+        if not self.current_archive_emails:
+            self.email_list_text.insert(tk.END, "No emails found in this archive")
+            return
+        
+        # Display all emails from archive
+        self.email_list_text.insert(tk.END, f"Emails from Archive ID {archive_id}\n")
+        self.email_list_text.insert(tk.END, f"Total: {len(self.current_archive_emails)} unique emails\n")
+        self.email_list_text.insert(tk.END, "="*80 + "\n\n")
+        
+        for idx, (email, info) in enumerate(self.current_archive_emails.items(), 1):
+            domains = ', '.join(list(info.get('domains', []))[:3])
+            sources = len(info.get('sources', []))
+            email_text = f"[{idx}] {email}\n    Domains: {domains}\n    Found in: {sources} job listings\n\n"
+            self.email_list_text.insert(tk.END, email_text)
+        
+        messagebox.showinfo("Loaded", f"Loaded {len(self.current_archive_emails)} emails from archive {archive_id}")
+    
+    def send_email_from_archive(self):
+        """Send emails to contacts from selected archive with custom message"""
+        if not self.current_archive_emails:
+            messagebox.showwarning("No Emails", "Please load emails from an archive first using 'Load Emails from Selected Archive'")
+            return
+        
+        # Create dialog to compose email
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Compose Email to Contacts")
+        dialog.geometry("700x600")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Center dialog
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (700 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (600 // 2)
+        dialog.geometry(f"700x600+{x}+{y}")
+        
+        ttk_boot.Label(dialog, text="📧 Email Message to Send", font=("Helvetica", 12, "bold")).pack(pady=10)
+        
+        # Recipient count
+        ttk_boot.Label(dialog, text=f"Recipients: {len(self.current_archive_emails)} emails", font=("Helvetica", 10)).pack(pady=5)
+        
+        # Subject
+        ttk_boot.Label(dialog, text="Subject:").pack(anchor=W, padx=20, pady=(10, 0))
+        subject_entry = ttk_boot.Entry(dialog, width=60)
+        subject_entry.insert(0, "JobGoblin - Lead Finder Results")
+        subject_entry.pack(padx=20, pady=5)
+        
+        # Message body
+        ttk_boot.Label(dialog, text="Message Body:").pack(anchor=W, padx=20, pady=(10, 0))
+        message_text = scrolledtext.ScrolledText(dialog, wrap=tk.WORD, font=("Courier", 10), height=15)
+        message_text.pack(padx=20, pady=5, fill=BOTH, expand=YES)
+        
+        # Default message
+        default_message = """Hello,
+
+We've identified potential job opportunities that match your criteria. 
+
+Please review the details below for more information.
+
+Best regards,
+JobGoblin Lead Finder
+"""
+        message_text.insert(1.0, default_message)
+        
+        # Button frame
+        button_frame = ttk_boot.Frame(dialog)
+        button_frame.pack(pady=10)
+        
+        def send():
+            subject = subject_entry.get().strip()
+            message = message_text.get(1.0, tk.END).strip()
+            
+            if not subject:
+                messagebox.showerror("Error", "Please enter a subject")
+                return
+            
+            if not message:
+                messagebox.showerror("Error", "Please enter a message body")
+                return
+            
+            # Check daily limit
+            email_mgr = EmailManager("output", verbose=False)
+            stats = email_mgr.get_daily_stats()
+            
+            email_list = list(self.current_archive_emails.keys())
+            emails_to_send = min(len(email_list), stats['remaining'])
+            
+            if emails_to_send == 0:
+                messagebox.showerror("Limit Reached", f"Daily limit reached. You can send {stats['remaining']} more emails today.")
+                return
+            
+            # Confirm sending
+            if not messagebox.askyesno("Confirm Send", f"Send email to {emails_to_send} contacts?\n\nLimit: {stats['emails_sent_today']}/{stats['daily_limit']} sent today"):
+                return
+            
+            # Send emails
+            dialog.destroy()
+            self.send_emails_to_list(email_list[:emails_to_send], subject, message)
+        
+        send_btn = ttk_boot.Button(button_frame, text="Send Email", command=send, bootstyle="success", width=18)
+        send_btn.pack(side=LEFT, padx=5)
+        
+        cancel_btn = ttk_boot.Button(button_frame, text="Cancel", command=dialog.destroy, bootstyle="danger", width=18)
+        cancel_btn.pack(side=LEFT, padx=5)
+    
+    def send_emails_to_list(self, email_list, subject, message):
+        """Send emails to a list of email addresses"""
+        sender = EmailSender(verbose=True)
+        sent_count = 0
+        failed_count = 0
+        
+        for idx, email in enumerate(email_list, 1):
+            try:
+                self.update_status(f"📧 Sending email {idx}/{len(email_list)} to {email}...")
+                
+                success = sender.send_email(email, subject, message)
+                
+                if success:
+                    sent_count += 1
+                    email_mgr = EmailManager("output", verbose=False)
+                    email_mgr.mark_email_sent(email, email, subject, "success")
+                else:
+                    failed_count += 1
+                
+                self.root.update()
+                time.sleep(0.5)  # Throttle to avoid rate limiting
+            
+            except Exception as e:
+                failed_count += 1
+                if self.scraping:  # Only show error if still running
+                    self.update_status(f"❌ Failed to send to {email}: {str(e)}")
+        
+        # Show results
+        messagebox.showinfo("Send Complete", f"Sent: {sent_count}\nFailed: {failed_count}\n\nEmails have been tracked in your sending history.")
+        self.update_status("Ready")
+        self.refresh_email_stats()
+
 
 
 def main():
