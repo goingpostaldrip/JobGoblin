@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JobGoblin - Lead Finder 🟢</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #0a3a0a 100%);
+            color: #00FF00;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 2px solid #00DD00;
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #00FF00;
+            text-shadow: 0 0 10px #00DD00;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #00AA00;
+            font-size: 1.2em;
+        }
+
+        .credit {
+            color: #00DD00;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: rgba(0, 20, 0, 0.8);
+            border: 2px solid #00DD00;
+            border-radius: 8px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .card h2 {
+            color: #00FF00;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #00AA00;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            color: #00DD00;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 50, 0, 0.5);
+            border: 1px solid #00AA00;
+            color: #00FF00;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        input[type="number"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #00FF00;
+            box-shadow: 0 0 10px #00DD00;
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="checkbox"] {
+            margin-right: 8px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn-primary {
+            background: #00FF00;
+            color: #000;
+            box-shadow: 0 0 20px #00FF00;
+        }
+
+        .btn-primary:hover {
+            background: #00DD00;
+            box-shadow: 0 0 30px #00FF00;
+        }
+
+        .btn-primary:disabled {
+            background: #005500;
+            color: #003300;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn-danger {
+            background: #FF0000;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #CC0000;
+        }
+
+        .btn-secondary {
+            background: #00AA00;
+            color: #000;
+        }
+
+        .btn-secondary:hover {
+            background: #00DD00;
+        }
+
+        .progress-section {
+            margin-top: 20px;
+        }
+
+        .progress-bar {
+            background: rgba(0, 50, 0, 0.8);
+            border: 2px solid #00AA00;
+            border-radius: 4px;
+            height: 30px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #00FF00, #00DD00);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            font-weight: bold;
+        }
+
+        .status-message {
+            color: #00FF00;
+            font-size: 0.9em;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+
+        .results-section {
+            margin-top: 20px;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .job-card {
+            background: rgba(0, 30, 0, 0.9);
+            border: 1px solid #00AA00;
+            border-radius: 4px;
+            padding: 15px;
+        }
+
+        .job-title {
+            color: #00FF00;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .job-url {
+            color: #00AA00;
+            font-size: 0.85em;
+            word-break: break-all;
+            margin-bottom: 8px;
+        }
+
+        .job-engine {
+            color: #00DD00;
+            font-size: 0.8em;
+        }
+
+        .email-list {
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .email-item {
+            background: rgba(0, 30, 0, 0.5);
+            padding: 8px;
+            margin: 5px 0;
+            border-left: 2px solid #00DD00;
+            color: #00FF00;
+            font-size: 0.9em;
+            word-break: break-all;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .stat {
+            background: rgba(0, 50, 0, 0.6);
+            padding: 15px;
+            border-left: 3px solid #00FF00;
+            text-align: center;
+        }
+
+        .stat-value {
+            color: #00FF00;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            color: #00AA00;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #00AA00;
+            color: #00AA00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🟢 JobGoblin - Lead Finder 🟢</h1>
+            <p class="subtitle">Professional Job Scraping & Email Extraction</p>
+            <p class="credit">Created by NERDY BIRD IT • nerdybirdit@gmail.com • +1 (412) 773-4245</p>
+        </header>
+
+        <div class="main-grid">
+            <!-- Scraper Panel -->
+            <div class="card">
+                <h2>🔍 Job Scraper</h2>
+                
+                <div class="form-group">
+                    <label>Keywords (comma-separated)</label>
+                    <input type="text" id="keywords" placeholder="e.g., python developer, remote jobs" />
+                </div>
+
+                <div class="form-group">
+                    <label>Locations (comma-separated, optional)</label>
+                    <input type="text" id="locations" placeholder="e.g., New York, San Francisco" />
+                </div>
+
+                <div class="form-group">
+                    <label>Max Results per Query</label>
+                    <input type="number" id="maxResults" value="10" min="1" max="100" />
+                </div>
+
+                <div class="form-group">
+                    <label>Search Engines</label>
+                    <div id="engineCheckboxes" class="checkbox-group"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="extractEmails" checked>
+                        Extract Emails from Job Postings
+                    </label>
+                </div>
+
+                <button class="btn btn-primary" id="startBtn" onclick="startScraping()">Start Scraping</button>
+                <button class="btn btn-danger" id="stopBtn" onclick="stopScraping()" style="display:none;">Stop Scraping</button>
+
+                <div class="progress-section">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill">0%</div>
+                    </div>
+                    <div class="status-message" id="statusMessage">Ready to scrape</div>
+                </div>
+
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-value" id="jobsCount">0</div>
+                        <div class="stat-label">Jobs Found</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="emailsCount">0</div>
+                        <div class="stat-label">Emails Found</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export Panel -->
+            <div class="card">
+                <h2>📊 Export & Email</h2>
+
+                <button class="btn btn-secondary" onclick="exportResults()" id="exportBtn" disabled>
+                    📥 Export as JSON
+                </button>
+
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>Email Results To:</label>
+                    <input type="email" id="emailRecipient" placeholder="recipient@example.com" />
+                </div>
+
+                <div class="form-group">
+                    <label>Email Subject:</label>
+                    <input type="text" id="emailSubject" value="JobGoblin Results" />
+                </div>
+
+                <button class="btn btn-secondary" onclick="emailResults()" id="emailBtn" disabled>
+                    📧 Send Results
+                </button>
+
+                <div style="margin-top: 20px;">
+                    <h3 style="color: #00FF00; margin-bottom: 10px;">📧 Extracted Emails</h3>
+                    <div class="email-list" id="emailList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="card results-section" id="resultsSection" style="display:none;">
+            <h2>📋 Job Results</h2>
+            <div class="results-grid" id="resultsGrid"></div>
+        </div>
+
+        <footer>
+            <p>Built with ❤️ by NERDY BIRD IT • Powered by JobGoblin 🟢</p>
+        </footer>
+    </div>
+
+    <script>
+        let isScrapy = false;
+
+        // Load engines on startup
+        window.onload = () => {
+            loadEngines();
+            updateStatus();
+        };
+
+        async function loadEngines() {
+            try {
+                const response = await fetch('/api/engines');
+                const engines = await response.json();
+                const container = document.getElementById('engineCheckboxes');
+                
+                engines.forEach(engine => {
+                    const label = document.createElement('label');
+                    label.className = 'checkbox-item';
+                    label.innerHTML = `
+                        <input type="checkbox" name="engines" value="${engine.key}" ${engine.key === 'duckduckgo' ? 'checked' : ''}>
+                        ${engine.name}
+                    `;
+                    container.appendChild(label);
+                });
+            } catch (error) {
+                console.error('Error loading engines:', error);
+            }
+        }
+
+        async function startScraping() {
+            const keywords = document.getElementById('keywords').value;
+            const locations = document.getElementById('locations').value;
+            const maxResults = document.getElementById('maxResults').value;
+            const extractEmails = document.getElementById('extractEmails').checked;
+            
+            const engineCheckboxes = document.querySelectorAll('input[name="engines"]:checked');
+            const engines = Array.from(engineCheckboxes).map(cb => cb.value);
+
+            if (!keywords || engines.length === 0) {
+                alert('Please enter keywords and select at least one engine');
+                return;
+            }
+
+            isScrapy = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').style.display = 'block';
+
+            try {
+                const response = await fetch('/api/scrape', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        keywords,
+                        locations,
+                        engines,
+                        max_results: maxResults,
+                        extract_emails: extractEmails
+                    })
+                });
+
+                if (response.ok) {
+                    // Poll for status updates
+                    statusInterval = setInterval(updateStatus, 500);
+                } else {
+                    alert('Failed to start scraping');
+                    isScrapy = false;
+                    document.getElementById('startBtn').disabled = false;
+                    document.getElementById('stopBtn').style.display = 'none';
+                }
+            } catch (error) {
+                alert('Error: ' + error);
+                isScrapy = false;
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').style.display = 'none';
+            }
+        }
+
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+
+                document.getElementById('progressFill').style.width = data.progress + '%';
+                document.getElementById('progressFill').textContent = data.progress + '%';
+                document.getElementById('statusMessage').textContent = data.status;
+                document.getElementById('jobsCount').textContent = data.jobs_count;
+                document.getElementById('emailsCount').textContent = data.emails_count;
+
+                if (data.jobs_count > 0) {
+                    document.getElementById('exportBtn').disabled = false;
+                    document.getElementById('resultsSection').style.display = 'block';
+                    loadResults();
+                }
+
+                if (data.emails_count > 0) {
+                    document.getElementById('emailBtn').disabled = false;
+                    loadEmails();
+                }
+
+                if (!data.active && isScrapy) {
+                    clearInterval(statusInterval);
+                    document.getElementById('startBtn').disabled = false;
+                    document.getElementById('stopBtn').style.display = 'none';
+                    isScrapy = false;
+                }
+            } catch (error) {
+                console.error('Error updating status:', error);
+            }
+        }
+
+        async function loadResults() {
+            try {
+                const response = await fetch('/api/results');
+                const data = await response.json();
+                
+                const grid = document.getElementById('resultsGrid');
+                grid.innerHTML = '';
+
+                data.jobs.forEach(job => {
+                    const card = document.createElement('div');
+                    card.className = 'job-card';
+                    card.innerHTML = `
+                        <div class="job-title">${job.title || 'No Title'}</div>
+                        <div class="job-url"><a href="${job.url}" target="_blank" style="color: #00AA00;">${job.url || 'N/A'}</a></div>
+                        <div class="job-engine">🔍 ${job.engine || 'N/A'}</div>
+                    `;
+                    grid.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Error loading results:', error);
+            }
+        }
+
+        async function loadEmails() {
+            try {
+                const response = await fetch('/api/results');
+                const data = await response.json();
+                
+                const list = document.getElementById('emailList');
+                list.innerHTML = '';
+
+                data.emails.forEach(email => {
+                    const item = document.createElement('div');
+                    item.className = 'email-item';
+                    item.textContent = email;
+                    list.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Error loading emails:', error);
+            }
+        }
+
+        async function stopScraping() {
+            try {
+                await fetch('/api/stop', { method: 'POST' });
+            } catch (error) {
+                console.error('Error stopping:', error);
+            }
+        }
+
+        async function exportResults() {
+            try {
+                window.location.href = '/api/export';
+            } catch (error) {
+                alert('Export failed: ' + error);
+            }
+        }
+
+        async function emailResults() {
+            const recipient = document.getElementById('emailRecipient').value;
+            const subject = document.getElementById('emailSubject').value;
+
+            if (!recipient) {
+                alert('Please enter recipient email');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ recipient, subject })
+                });
+
+                if (response.ok) {
+                    alert('Email sent successfully!');
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.error);
+                }
+            } catch (error) {
+                alert('Email failed: ' + error);
+            }
+        }
+
+        let statusInterval;
+    </script>
+</body>
+</html>
