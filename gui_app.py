@@ -1110,8 +1110,11 @@ Total Jobs: {len(self.results)}
         btn_frame = ttk_boot.Frame(dialog)
         btn_frame.pack(pady=20)
         
-        ttk_boot.Button(btn_frame, text="📧 Send", command=send_email, bootstyle="success").pack(side=LEFT, padx=10)
-        ttk_boot.Button(btn_frame, text="❌ Cancel", command=dialog.destroy, bootstyle="danger-outline").pack(side=LEFT, padx=10)
+        send_btn = ttk_boot.Button(btn_frame, text="Send Email", command=send_email, bootstyle="success", width=12)
+        send_btn.pack(side=LEFT, padx=10)
+        
+        cancel_btn = ttk_boot.Button(btn_frame, text="Cancel", command=dialog.destroy, bootstyle="danger", width=12)
+        cancel_btn.pack(side=LEFT, padx=10)
     
     def load_archive(self):
         """Load scrape archive from file"""
@@ -1227,7 +1230,7 @@ Jobs Found: {entry.get('jobs_found', 0)}
 Emails Found: {entry.get('emails_found', 0)}
 
 {'='*80}
-SAMPLE RESULTS (first 10):
+SAMPLE RESULTS (first 10 jobs):
 {'='*80}
 
 """
@@ -1236,6 +1239,19 @@ SAMPLE RESULTS (first 10):
         for idx, result in enumerate(entry.get('results', [])[:10], 1):
             result_text = f"\n[{idx}] {result.get('title', 'No Title')}\n    URL: {result.get('url', 'N/A')}\n    Engine: {result.get('engine', 'N/A')}\n"
             self.archive_details.insert(tk.END, result_text)
+        
+        # Add extracted emails section if emails were found
+        if entry.get('emails_found', 0) > 0 and entry.get('extracted_emails'):
+            self.archive_details.insert(tk.END, f"\n\n{'='*80}\nEXTRACTED EMAILS (first 20):\n{'='*80}\n\n")
+            
+            emails = entry.get('extracted_emails', {})
+            for idx, (email, info) in enumerate(list(emails.items())[:20], 1):
+                domains = ', '.join(list(info.get('domains', []))[:3])
+                email_text = f"[{idx}] {email}\n    Domains: {domains}\n    Sources: {len(info.get('sources', []))}\n\n"
+                self.archive_details.insert(tk.END, email_text)
+        elif entry.get('emails_found', 0) == 0:
+            self.archive_details.insert(tk.END, f"\n\n{'='*80}\nNO EMAILS FOUND\n{'='*80}\n")
+
     
     def clear_archive(self):
         """Clear the entire archive"""

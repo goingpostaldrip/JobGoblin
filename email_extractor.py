@@ -23,6 +23,18 @@ EXCLUDE_PATTERNS = [
     r'example\.com', r'localhost', r'invalid', r'fake', r'spam'
 ]
 
+# File extensions that shouldn't be in emails
+INVALID_EMAIL_PATTERNS = [
+    r'\.png', r'\.jpg', r'\.jpeg', r'\.gif', r'\.svg', r'\.webp', r'\.ico',
+    r'\.pdf', r'\.doc', r'\.docx', r'\.xls', r'\.xlsx',
+    r'\.zip', r'\.rar', r'\.tar', r'\.gz',
+    r'\.mp4', r'\.mp3', r'\.avi', r'\.mov',
+    r'\.css', r'\.js', r'\.json', r'\.xml',
+    r'\d{3,}x\d{3,}',  # Image dimensions like 1000x500
+    r'@2x', r'@3x',  # Retina image markers
+    r'-\d{3,}x\d{3,}',  # More image dimension patterns
+]
+
 def is_valid_email(email: str) -> bool:
     """Check if email passes validation rules"""
     if not email or not EMAIL_REGEX.match(email):
@@ -30,10 +42,25 @@ def is_valid_email(email: str) -> bool:
     
     email_lower = email.lower()
     
+    # Filter out file extensions and image patterns
+    for pattern in INVALID_EMAIL_PATTERNS:
+        if re.search(pattern, email_lower, re.IGNORECASE):
+            return False
+    
     # Filter out common exclude patterns
     for pattern in EXCLUDE_PATTERNS:
         if re.search(pattern, email_lower, re.IGNORECASE):
             return False
+    
+    # Must have at least one letter before @ (not just numbers)
+    local_part = email.split('@')[0]
+    if not re.search(r'[A-Za-z]', local_part):
+        return False
+    
+    # Domain should have at least one letter (not just numbers/dashes)
+    domain_part = email.split('@')[1] if '@' in email else ''
+    if not re.search(r'[A-Za-z]', domain_part):
+        return False
     
     return True
 
