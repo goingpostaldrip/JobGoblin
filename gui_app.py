@@ -960,7 +960,7 @@ No manual configuration needed - just click "Find Proxies" in Proxy tab!
     def setup_developer_tab(self):
         """Setup Developer Console with Terminal and Code Editor"""
         # Create main container with paned window
-        paned_window = ttk_boot.PanedWindow(self.developer_tab, orient=VERTICAL)
+        paned_window = ttk_boot.Panedwindow(self.developer_tab, orient=VERTICAL)
         paned_window.pack(fill=BOTH, expand=YES, padx=10, pady=10)
         
         # ==================== Terminal Section ====================
@@ -968,9 +968,6 @@ No manual configuration needed - just click "Find Proxies" in Proxy tab!
         paned_window.add(terminal_frame, weight=1)
         
         # Terminal output with scrollbar
-        terminal_scrollbar = ttk.Scrollbar(terminal_frame)
-        terminal_scrollbar.pack(side=RIGHT, fill=Y)
-        
         self.developer_terminal = scrolledtext.ScrolledText(
             terminal_frame,
             height=12,
@@ -978,7 +975,6 @@ No manual configuration needed - just click "Find Proxies" in Proxy tab!
             bg="#1e1e1e",
             fg="#00ff00",
             font=("Courier", 10),
-            scrollbar=terminal_scrollbar,
             insertbackground="#00ff00"
         )
         self.developer_terminal.pack(fill=BOTH, expand=YES)
@@ -1005,9 +1001,6 @@ No manual configuration needed - just click "Find Proxies" in Proxy tab!
         ttk_boot.Button(button_frame, text="📋 Clear Output", command=self.clear_developer_terminal, bootstyle="danger", width=15).pack(side=LEFT, padx=5)
         
         # Code editor with scrollbar
-        editor_scrollbar = ttk.Scrollbar(editor_frame)
-        editor_scrollbar.pack(side=RIGHT, fill=Y)
-        
         self.developer_code_editor = scrolledtext.ScrolledText(
             editor_frame,
             height=15,
@@ -1015,7 +1008,6 @@ No manual configuration needed - just click "Find Proxies" in Proxy tab!
             bg="#1e1e1e",
             fg="#e6e6e6",
             font=("Courier", 10),
-            scrollbar=editor_scrollbar,
             insertbackground="#00ff00"
         )
         self.developer_code_editor.pack(fill=BOTH, expand=YES)
