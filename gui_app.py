@@ -199,6 +199,10 @@ class JobScraperGUI:
         self.settings_tab = ttk_boot.Frame(self.notebook)
         self.notebook.add(self.settings_tab, text="⚙️ Settings")
         
+        # Tab 7: Developer Console
+        self.developer_tab = ttk_boot.Frame(self.notebook)
+        self.notebook.add(self.developer_tab, text="👨‍💻 Developer")
+        
         # Setup each tab
         self.setup_scraper_tab()
         self.setup_archive_tab()
@@ -206,6 +210,7 @@ class JobScraperGUI:
         self.setup_proxy_tab()
         self.setup_help_tab()
         self.setup_settings_tab()
+        self.setup_developer_tab()
         
     def setup_scraper_tab(self):
         """Setup the main scraper interface"""
@@ -951,6 +956,132 @@ No manual configuration needed - just click "Find Proxies" in Proxy tab!
         ttk_boot.Label(about_frame, text="📱 WhatsApp: +1 (412) 773-4245", font=("Helvetica", 10), foreground="#e6e6e6").pack(pady=2)
         ttk_boot.Label(about_frame, text="Version 2.0 - December 2025", foreground="#e6e6e6").pack(pady=2)
         ttk_boot.Label(about_frame, text="Professional job scraping and email campaign tool", foreground="#e6e6e6").pack(pady=2)
+    
+    def setup_developer_tab(self):
+        """Setup Developer Console with Terminal and Code Editor"""
+        # Create main container with paned window
+        paned_window = ttk_boot.PanedWindow(self.developer_tab, orient=VERTICAL)
+        paned_window.pack(fill=BOTH, expand=YES, padx=10, pady=10)
+        
+        # ==================== Terminal Section ====================
+        terminal_frame = ttk_boot.Labelframe(paned_window, text="🖥️ Terminal Output", bootstyle="info", padding=10)
+        paned_window.add(terminal_frame, weight=1)
+        
+        # Terminal output with scrollbar
+        terminal_scrollbar = ttk.Scrollbar(terminal_frame)
+        terminal_scrollbar.pack(side=RIGHT, fill=Y)
+        
+        self.developer_terminal = scrolledtext.ScrolledText(
+            terminal_frame,
+            height=12,
+            width=120,
+            bg="#1e1e1e",
+            fg="#00ff00",
+            font=("Courier", 10),
+            scrollbar=terminal_scrollbar,
+            insertbackground="#00ff00"
+        )
+        self.developer_terminal.pack(fill=BOTH, expand=YES)
+        
+        # Configure terminal text tags for output styling
+        self.developer_terminal.tag_config("info", foreground="#00ff00")
+        self.developer_terminal.tag_config("error", foreground="#ff0000")
+        self.developer_terminal.tag_config("warning", foreground="#ffaa00")
+        self.developer_terminal.tag_config("success", foreground="#00ff00")
+        
+        # Add initial message
+        self.developer_log_message("🟢 Developer Console Initialized", "success")
+        
+        # ==================== Code Editor Section ====================
+        editor_frame = ttk_boot.Labelframe(paned_window, text="📝 Python Code Editor", bootstyle="info", padding=10)
+        paned_window.add(editor_frame, weight=1)
+        
+        # Create frame for buttons
+        button_frame = ttk_boot.Frame(editor_frame)
+        button_frame.pack(fill=X, padx=5, pady=5)
+        
+        ttk_boot.Button(button_frame, text="▶️ Execute", command=self.execute_developer_code, bootstyle="success", width=15).pack(side=LEFT, padx=5)
+        ttk_boot.Button(button_frame, text="🧹 Clear", command=self.clear_developer_code, bootstyle="warning", width=15).pack(side=LEFT, padx=5)
+        ttk_boot.Button(button_frame, text="📋 Clear Output", command=self.clear_developer_terminal, bootstyle="danger", width=15).pack(side=LEFT, padx=5)
+        
+        # Code editor with scrollbar
+        editor_scrollbar = ttk.Scrollbar(editor_frame)
+        editor_scrollbar.pack(side=RIGHT, fill=Y)
+        
+        self.developer_code_editor = scrolledtext.ScrolledText(
+            editor_frame,
+            height=15,
+            width=120,
+            bg="#1e1e1e",
+            fg="#e6e6e6",
+            font=("Courier", 10),
+            scrollbar=editor_scrollbar,
+            insertbackground="#00ff00"
+        )
+        self.developer_code_editor.pack(fill=BOTH, expand=YES)
+        
+        # Add sample code
+        sample_code = """# Example: Print available jobs
+import json
+
+# Access scraper results
+print(f"Total jobs scraped: {len(self.results)}")
+print(f"Total emails found: {len(self.extracted_emails)}")
+
+# Example: Access archive
+if self.archive_data:
+    latest = self.archive_data[-1]
+    print(f"Latest archive: {latest['keywords']} in {latest['locations']}")
+"""
+        self.developer_code_editor.insert(1.0, sample_code)
+        self.developer_code_editor.tag_config("comment", foreground="#6a9955")
+        self.developer_code_editor.tag_config("keyword", foreground="#569cd6")
+    
+    def developer_log_message(self, message: str, tag: str = "info"):
+        """Log message to developer terminal"""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.developer_terminal.insert(tk.END, f"[{timestamp}] {message}\n", tag)
+        self.developer_terminal.see(tk.END)
+        self.root.update_idletasks()
+    
+    def execute_developer_code(self):
+        """Execute code from developer editor"""
+        code = self.developer_code_editor.get(1.0, tk.END)
+        if not code.strip():
+            self.developer_log_message("❌ No code to execute", "warning")
+            return
+        
+        self.developer_log_message(f"▶️ Executing code...", "info")
+        
+        try:
+            # Create a local namespace with access to self
+            local_namespace = {
+                'self': self,
+                'results': self.results,
+                'extracted_emails': self.extracted_emails,
+                'archive_data': self.archive_data,
+                'json': json,
+                'print': lambda *args, **kwargs: self.developer_log_message(' '.join(map(str, args)), "success")
+            }
+            
+            # Execute the code
+            exec(code, local_namespace)
+            self.developer_log_message("✅ Code executed successfully", "success")
+        
+        except Exception as e:
+            self.developer_log_message(f"❌ Error: {str(e)}", "error")
+            import traceback
+            self.developer_log_message(traceback.format_exc(), "error")
+    
+    def clear_developer_code(self):
+        """Clear the code editor"""
+        self.developer_code_editor.delete(1.0, tk.END)
+        self.developer_log_message("🧹 Code editor cleared", "info")
+    
+    def clear_developer_terminal(self):
+        """Clear the terminal output"""
+        self.developer_terminal.delete(1.0, tk.END)
+        self.developer_log_message("📋 Terminal cleared", "info")
     
     def setup_proxy_status_display(self, parent):
         """Compact proxy status display at TOP of settings"""
