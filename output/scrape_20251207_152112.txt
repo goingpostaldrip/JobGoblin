@@ -1,0 +1,105 @@
+JobGoblin - Scraped Results
+Generated: 2025-12-07 15:21:12
+Total Jobs: 9
+Total Emails: 10
+================================================================================
+
+[1] OT Dylan Cook elevated to Steelers' roster vs. Ravens
+URL: https://triblive.com/sports/ot-dylan-cook-elevated-to-steelers-roster-vs-ravens
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[2] The 10 BEST Cooking classes in Pittsburgh PA in 2025
+URL: https://pennsylvaniaconnection.com/pittsburgh/cooking-classes
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[3] Where To Learn How To Cook and Bake in Pittsburgh - City Cast Pittsburgh
+URL: https://pittsburgh.citycast.fm/food-drink/where-to-learn-pittsburgh-best-cooking-classes
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[4] cratecook.com
+URL: https://www.cratecook.com
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[5] Your Guide to Cooking Classes in Pittsburgh
+URL: https://goodfoodpittsburgh.com/your-guide-to-cooking-classes-in-pittsburgh
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[6] ThePittsburghSteelers are elevating offensive tackle D ylanCookfrom the practice squad to the active roster for their game against the Baltimore Ravens. That comes after Calvin Anderson, the ...
+URL: https://www.pennlive.com/steelers/2025/12/pittsburgh-steelers-elevate-promising-tackle-after-unexpected-injury.html
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[7] Cook Jobs, Employment in Pittsburgh, PA | Indeed
+URL: https://www.indeed.com/q-Cook-l-Pittsburgh,-PA-jobs.html
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[8] Dylan Cook - Wikipedia
+URL: https://en.wikipedia.org/wiki/Dylan_Cook
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[9] Cooking classes in Pittsburgh, PA - The Skillful Cook
+URL: https://theskillfulcook.com/cooking-classes/pittsburgh-pa
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+
+================================================================================
+EXTRACTED EMAILS
+================================================================================
+
+[1] cadamski@triblive.com
+    Domains: triblive.com
+    Sources: 1
+
+[2] multimedia@triblive.com
+    Domains: triblive.com
+    Sources: 1
+
+[3] ttmcustomercare@triblive.com
+    Domains: triblive.com
+    Sources: 1
+
+[4] corrections@triblive.com
+    Domains: triblive.com
+    Sources: 1
+
+[5] pittsburgh@citycast.fm
+    Domains: pittsburgh.citycast.fm
+    Sources: 1
+
+[6] thanksgivingmeals@pittsburgh.gov
+    Domains: pittsburgh.citycast.fm
+    Sources: 1
+
+[7] thanksgivingmeals@pittsburghpa.gov
+    Domains: pittsburgh.citycast.fm
+    Sources: 1
+
+[8] user@domain.com
+    Domains: www.cratecook.com
+    Sources: 1
+
+[9] nfarabaugh@pennlive.com
+    Domains: www.pennlive.com
+    Sources: 1
+
+[10] hi@theskillfulcook.com
+    Domains: theskillfulcook.com
+    Sources: 1
+

@@ -1,0 +1,102 @@
+JobGoblin - Scraped Results
+Generated: 2025-12-08 16:14:24
+Total Jobs: 16
+Total Emails: 0
+================================================================================
+
+[1] Python Developer jobs in New York, NY - Indeed
+URL: https://www.indeed.com/q-Python-Developer-l-New-York,-NY-jobs.html
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[2] 1,000+ Python Developer jobs in New York - LinkedIn
+URL: https://www.linkedin.com/jobs/python-developer-jobs-new-york
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[3] 732 python developer Jobs in New York, NY, November 2025 | Glassdoor
+URL: https://www.glassdoor.com/Job/new-york-python-developer-jobs-SRCH_IL.0,8_IC1132348_KO9,25.htm
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[4] Best Python Jobs in NYC, NY 2025 | Built In NYC
+URL: https://www.builtinnyc.com/jobs/dev-engineering/python
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[5] Python Developer (New York) - foxleytalent.com
+URL: https://foxleytalent.com/jobs/python-developer-new-york
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[6] Sr. Python Developer - MDMS Recruiting - New York, NY - Dice
+URL: https://www.dice.com/job-detail/32798bb1-7c2d-409f-9423-2dbbdd346285
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[7] Python developer jobs in New York
+URL: https://diveintopython.org/jobs/usa/new-york/new-york
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[8] Precision Technologies Python Full Stack Developer Job New York
+URL: https://www.ziprecruiter.com/c/Precision-Technologies-Corp/Job/Python-Full-stack-developer/-in-New-York,NY
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[9] 8 Best Platforms to Hire Python Developers in the USA
+URL: https://www.index.dev/blog/platforms-to-hire-python-developers-usa
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[10] Python Developer jobs in Los Angeles, CA - Indeed
+URL: https://www.indeed.com/q-Python-Developer-l-Los-Angeles,-CA-jobs.html
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[11] 252 Python Developer jobs in Los Angeles - LinkedIn
+URL: https://www.linkedin.com/jobs/python-developer-jobs-los-angeles-ca
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[12] Python developer jobs in Los Angeles
+URL: https://diveintopython.org/jobs/usa/california/los-angeles
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[13] 347 Python developer jobs in Los Angeles, CA - Glassdoor
+URL: https://www.glassdoor.com/Job/los-angeles-python-developer-jobs-SRCH_IL.0,11_IC1146821_KO12,28.htm
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[14] Best Python Jobs in Los Angeles, CA 2025 | Built In Los Angeles
+URL: https://www.builtinla.com/jobs/dev-engineering/python
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[15] 2025 Python Developer Salary in US | Built In
+URL: https://builtin.com/salaries/us/python-developer
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+
+[16] 598 Python Developer jobs in Los Angeles Metropolitan Area (15 new)
+URL: https://www.linkedin.com/jobs/python-developer-jobs-los-angeles-metropolitan-area
+Engine: duckduckgo
+
+--------------------------------------------------------------------------------
+

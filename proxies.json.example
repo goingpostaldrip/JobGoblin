@@ -1,0 +1,13 @@
+{
+  "proxies": [
+    {
+      "url": "http://proxy-example.com:8080",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-09T00:00:00"
+    }
+  ],
+  "notes": "Format example for proxies.json - Generated automatically by proxy_manager.py. Add your proxies here or use the GUI."
+}

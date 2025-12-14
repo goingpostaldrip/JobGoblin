@@ -1,0 +1,3107 @@
+"""
+JOB SCRAPER ULTIMATE - Professional GUI Application
+Modern, colorful interface for job scraping and email extraction
+"""
+import tkinter as tk
+from tkinter import ttk, scrolledtext, messagebox, filedialog
+import ttkbootstrap as ttk_boot
+from ttkbootstrap.constants import *
+import json
+import os
+import threading
+import time
+from datetime import datetime
+from typing import List, Dict
+import sys
+import smtplib
+import ssl
+from email.mime.text import MIMEText
+import webbrowser
+
+# Import scraper modules
+from search_engines import ENGINE_FUNCS
+from site_indeed import indeed_search
+from site_greenhouse import greenhouse_search
+from site_lever import lever_search
+from site_simplyhired import simplyhired_search
+from site_remoteok import remoteok_search
+from site_weworkremotely import weworkremotely_search
+from site_remotive import remotive_search
+from normalize import normalize_record, is_relevant
+from email_extractor import extract_from_job_results, filter_and_dedupe_emails
+from email_manager import EmailManager
+from email_sender import EmailSender
+from enrichment_pipeline import JobEnrichment, sort_by_enrichment
+from proxy_manager import ProxyManager
+from proxy_finder import ProxyFinder
+from proxy_fetcher import ProxyFetcher
+from api_integrations import get_api_engines
+import subprocess
+import atexit
+import signal
+
+
+class JobScraperGUI:
+    """Professional GUI for Job Scraper Ultimate"""
+    
+    # Class-level proxy server process
+    proxy_server_process = None
+    
+    def __init__(self, root):
+        self.root = root
+        self.root.title("JobGoblin - Lead Finder")
+        self.root.geometry("1200x800")
+        
+        # State variables
+        self.scraping = False
+        self.results = []
+        self.extracted_emails = {}
+        self.archive_file = "output/scrape_archive.json"
+        
+        # Archive selection tracking for email manager
+        self.current_archive_entry = None
+        self.current_archive_id = None
+        self.current_archive_emails = {}
+        
+        # Initialize engine variables
+        self.engine_vars = {}
+        self.settings_engine_vars = {}
+        
+        # Ensure output directory exists
+        os.makedirs("output", exist_ok=True)
+        
+        # Initialize archive data
+        self.archive_data = []
+        
+        # Start background DDG proxy server
+        self.start_ddg_proxy_server()
+        
+        # Show welcome dialog FIRST as blocking modal
+        self.show_welcome_dialog()
+        
+        # Build UI after welcome is accepted
+        self.setup_ui()
+        self.load_archive()
+        
+        # Register cleanup on app close
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+    
+    def disable_app(self):
+        """Disable all app widgets"""
+        for child in self.root.winfo_children():
+            self._disable_widget(child)
+    
+    def _disable_widget(self, widget):
+        """Recursively disable widget and children"""
+        try:
+            widget.configure(state=DISABLED)
+        except:
+            pass
+        for child in widget.winfo_children():
+            self._disable_widget(child)
+    
+    def enable_app(self):
+        """Enable all app widgets"""
+        for child in self.root.winfo_children():
+            self._enable_widget(child)
+    
+    def _enable_widget(self, widget):
+        """Recursively enable widget and children"""
+        try:
+            widget.configure(state=NORMAL)
+        except:
+            pass
+        for child in widget.winfo_children():
+            self._enable_widget(child)
+    
+    @classmethod
+    def start_ddg_proxy_server(cls):
+        """Start background DuckDuckGo proxy server on localhost:8765"""
+        if cls.proxy_server_process is not None:
+            return  # Already running
+        
+        try:
+            # Start server as background subprocess
+            python_exec = sys.executable
+            server_script = os.path.join(os.path.dirname(__file__), "ddg_proxy_server.py")
+            
+            cls.proxy_server_process = subprocess.Popen(
+                [python_exec, server_script],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.DEVNULL,
+                start_new_session=True  # Detach from parent
+            )
+            
+            # Wait for ready signal (non-blocking)
+            import select
+            ready = select.select([cls.proxy_server_process.stdout], [], [], 3.0)
+            if ready[0]:
+                output = cls.proxy_server_process.stdout.readline().decode().strip()
+                if output == "DDG_PROXY_READY":
+                    print("[ProxyServer] DuckDuckGo proxy running at http://localhost:8765")
+            
+            # Register cleanup
+            atexit.register(cls.stop_ddg_proxy_server)
+            
+        except Exception as e:
+            print(f"[ProxyServer] Warning: Could not start DDG proxy: {e}")
+            cls.proxy_server_process = None
+    
+    @classmethod
+    def stop_ddg_proxy_server(cls):
+        """Stop background DDG proxy server"""
+        if cls.proxy_server_process is not None:
+            try:
+                cls.proxy_server_process.terminate()
+                cls.proxy_server_process.wait(timeout=3)
+            except:
+                try:
+                    cls.proxy_server_process.kill()
+                except:
+                    pass
+            finally:
+                cls.proxy_server_process = None
+    
+    def on_closing(self):
+        """Handle app closing - cleanup proxy server"""
+        self.stop_ddg_proxy_server()
+        self.root.destroy()
+        
+    def setup_ui(self):
+        """Setup the main UI layout"""
+        
+        # Create notebook (tabbed interface)
+        self.notebook = ttk_boot.Notebook(self.root)
+        self.notebook.pack(fill=BOTH, expand=YES, padx=10, pady=10)
+        
+        # Tab 1: Scraper
+        self.scraper_tab = ttk_boot.Frame(self.notebook)
+        self.notebook.add(self.scraper_tab, text="🟢 Job Scraper")
+        
+        # Tab 2: Archive/History
+        self.archive_tab = ttk_boot.Frame(self.notebook)
+        self.notebook.add(self.archive_tab, text="🟢 Scrape Archive")
+        
+        # Tab 3: Email Manager
+        self.email_tab = ttk_boot.Frame(self.notebook)
+        self.notebook.add(self.email_tab, text="🟢 Email Manager")
+        
+        # Tab 4: Proxy Management (NEW - separate tab)
+        self.proxy_tab = ttk_boot.Frame(self.notebook)
+        self.notebook.add(self.proxy_tab, text="🔗 Proxy Management")
+        
+        # Tab 5: Help & Support
+        self.help_tab = ttk_boot.Frame(self.notebook)
+        self.notebook.add(self.help_tab, text="🟢 Help & Support")
+        
+        # Tab 6: Settings (renamed from Settings & Proxies)
+        self.settings_tab = ttk_boot.Frame(self.notebook)
+        self.notebook.add(self.settings_tab, text="⚙️ Settings")
+        
+        # Setup each tab
+        self.setup_scraper_tab()
+        self.setup_archive_tab()
+        self.setup_email_tab()
+        self.setup_proxy_tab()
+        self.setup_help_tab()
+        self.setup_settings_tab()
+        
+    def setup_scraper_tab(self):
+        """Setup the main scraper interface"""
+        
+        # Left panel - Configuration (with scrollbar)
+        left_outer = ttk_boot.Frame(self.scraper_tab)
+        left_outer.pack(side=LEFT, fill=BOTH, expand=NO, padx=10, pady=10)
+        
+        # Create scrollable frame
+        left_canvas = tk.Canvas(left_outer, bg="white", highlightthickness=0, width=480)
+        left_scrollbar = ttk_boot.Scrollbar(left_outer, orient=VERTICAL, command=left_canvas.yview)
+        left_panel = ttk_boot.Frame(left_canvas)
+        
+        left_panel.bind(
+            "<Configure>",
+            lambda e: left_canvas.configure(scrollregion=left_canvas.bbox("all"))
+        )
+        
+        left_canvas.create_window((0, 0), window=left_panel, anchor="nw")
+        left_canvas.configure(yscrollcommand=left_scrollbar.set)
+        
+        left_canvas.pack(side="left", fill="both", expand=True)
+        left_scrollbar.pack(side="right", fill="y")
+        
+        # Enable scrolling everywhere in the left panel - bind recursively so all widgets respond
+        self._bind_scroll_events_recursive(left_canvas, left_panel)
+        
+        # Right panel - Results (resizable panes so progress/results can be smaller)
+        right_panel = ttk_boot.Frame(self.scraper_tab)
+        right_panel.pack(side=RIGHT, fill=BOTH, expand=YES, padx=(2, 8), pady=8)
+        right_pane = ttk.Panedwindow(right_panel, orient=VERTICAL)
+        right_pane.pack(fill=BOTH, expand=YES)
+        
+        # === LEFT PANEL WIDGETS ===
+        
+        # Keywords section
+        keywords_frame = ttk_boot.Labelframe(left_panel, text="🔑 Keywords", bootstyle="primary", padding=10)
+        keywords_frame.pack(fill=X, pady=5)
+        
+        ttk_boot.Label(keywords_frame, text="Enter keywords (comma-separated):").pack(anchor=W)
+        self.keywords_entry = ttk_boot.Entry(keywords_frame, width=40)
+        self.keywords_entry.pack(fill=X, pady=5)
+        self.keywords_entry.insert(0, "Python Developer, Data Scientist")
+        
+        # Locations section
+        locations_frame = ttk_boot.Labelframe(left_panel, text="📍 Locations", bootstyle="info", padding=10)
+        locations_frame.pack(fill=X, pady=5)
+        
+        # Country/Region selector (inspired by Apify's 70+ countries)
+        country_label_frame = ttk_boot.Frame(locations_frame)
+        country_label_frame.pack(fill=X, pady=(0, 5))
+        ttk_boot.Label(country_label_frame, text="🌍 Region/Country:", font=("Helvetica", 9)).pack(side=LEFT)
+        
+        self.country_var = tk.StringVar(value="United States")
+        country_combo = ttk_boot.Combobox(country_label_frame, textvariable=self.country_var, width=18, state="readonly")
+        country_combo["values"] = (
+            "United States", "United Kingdom", "Canada", "Australia", "Germany", 
+            "France", "India", "Singapore", "Remote/Global", "Netherlands", "Spain"
+        )
+        country_combo.pack(side=LEFT, padx=5)
+        
+        ttk_boot.Label(locations_frame, text="Cities (comma-separated):").pack(anchor=W, pady=(5, 0))
+        self.locations_entry = ttk_boot.Entry(locations_frame, width=40)
+        self.locations_entry.pack(fill=X, pady=5)
+        self.locations_entry.insert(0, "New York, Los Angeles")
+        
+        # Search Engines section with scrollable list
+        engines_frame = ttk_boot.Labelframe(left_panel, text="🌐 Search Engines", bootstyle="success", padding=10)
+        engines_frame.pack(fill=BOTH, expand=False, pady=5)
+        
+        # Create buttons FIRST (will appear at top due to pack order)
+        btn_frame = ttk_boot.Frame(engines_frame)
+        btn_frame.pack(fill=X, pady=(0, 5))
+        
+        select_all_btn = ttk_boot.Button(btn_frame, text="✓ Select All", command=self.select_all_engines, bootstyle="success-outline")
+        select_all_btn.pack(side=LEFT, padx=3, expand=True, fill=X)
+        
+        deselect_all_btn = ttk_boot.Button(btn_frame, text="✗ Deselect All", command=self.deselect_all_engines, bootstyle="danger-outline")
+        deselect_all_btn.pack(side=LEFT, padx=3, expand=True, fill=X)
+        
+        # Store button references for debugging
+        self.select_all_btn = select_all_btn
+        self.deselect_all_btn = deselect_all_btn
+        
+        # Now the scrollable canvas - comes AFTER buttons in pack order
+        engines_canvas = tk.Canvas(engines_frame, height=160, bg="#222222", highlightthickness=0)
+        engines_scrollbar = ttk_boot.Scrollbar(engines_frame, orient=VERTICAL, command=engines_canvas.yview, bootstyle="success-round")
+        engines_scrollable = ttk_boot.Frame(engines_canvas)
+        engines_scrollable.bind("<Configure>", lambda e: engines_canvas.configure(scrollregion=engines_canvas.bbox("all")))
+        engines_canvas.create_window((0, 0), window=engines_scrollable, anchor="nw")
+        engines_canvas.configure(yscrollcommand=engines_scrollbar.set)
+        engines_canvas.pack(side=LEFT, fill=BOTH, expand=True)
+        engines_scrollbar.pack(side=RIGHT, fill=Y)
+        
+        # Enable mouse wheel scrolling inside the canvas and all children
+        self._bind_scroll_events_recursive(engines_canvas, engines_scrollable)
+        
+        # Engine checkboxes - Search Engines
+        self.settings_engine_vars = {}
+        ttk_boot.Label(engines_scrollable, text="═══ SEARCH ENGINES ═══", font=("Arial", 9, "bold"), foreground="#FFD700").pack(anchor=W, pady=(0, 5))
+        search_engines = [
+            ("🔍 DuckDuckGo (Free - Working ✓)", "duckduckgo", True),
+            ("🔒 Startpage (Free - Privacy)", "startpage", False),
+            ("🐍 SerpAPI (Paid - Requires API Key)", "serpapi", False),
+            ("🔎 Google CSE (Paid - Requires API Key)", "google_cse", False),
+            ("🅱️ Bing (Paid - Requires API Key)", "bing", False),
+        ]
+        for label, engine, default in search_engines:
+            var = tk.BooleanVar(value=default)
+            self.engine_vars[engine] = var
+            ttk_boot.Checkbutton(engines_scrollable, text=label, variable=var, bootstyle="success-round-toggle").pack(anchor=W, pady=2)
+        
+        ttk_boot.Label(engines_scrollable, text="═══ JOB SITES (API-Based) ═══", font=("Arial", 9, "bold"), foreground="#00D9FF").pack(anchor=W, pady=(10, 5))
+        job_sites = [
+            ("💼 Indeed", "indeed", False),
+            ("🏢 Greenhouse", "greenhouse", False),
+            ("⚙️ Lever", "lever", False),
+            ("📋 SimplyHired", "simplyhired", False),
+            ("🌐 RemoteOK (API - No Blocking)", "remoteok", True),
+            ("🏠 WeWorkRemotely (RSS - No Blocking)", "weworkremotely", True),
+            ("🚀 Remotive (API - No Blocking)", "remotive", True),
+        ]
+        for label, engine, default in job_sites:
+            var = tk.BooleanVar(value=default)
+            self.engine_vars[engine] = var
+            ttk_boot.Checkbutton(engines_scrollable, text=label, variable=var, bootstyle="info-round-toggle").pack(anchor=W, pady=2)
+        
+        # Options section
+        options_frame = ttk_boot.Labelframe(left_panel, text="⚡ Options", bootstyle="warning", padding=10)
+        options_frame.pack(fill=X, pady=5)
+        
+        max_results_row = ttk_boot.Frame(options_frame)
+        max_results_row.pack(fill=X, pady=5)
+        ttk_boot.Label(max_results_row, text="Max total results (scraper stops at this limit):").pack(side=LEFT, padx=(0, 5))
+        self.max_results_var = tk.IntVar(value=50)
+        self.max_results_entry = ttk_boot.Entry(max_results_row, textvariable=self.max_results_var, width=10)
+        self.max_results_entry.pack(side=LEFT)
+        
+        # Date posted filter (inspired by Apify)
+        ttk_boot.Label(options_frame, text="📅 Posted since:", font=("Helvetica", 9, "bold")).pack(anchor=W, pady=(10, 5))
+        self.date_posted_var = tk.StringVar(value="any_time")
+        date_frame = ttk_boot.Frame(options_frame)
+        date_frame.pack(anchor=W, fill=X)
+        date_options = [("Any", "any_time"), ("24h", "past_24_hours"), ("Week", "past_week"), ("Month", "past_month")]
+        for label, value in date_options:
+            ttk_boot.Radiobutton(date_frame, text=label, variable=self.date_posted_var, value=value, bootstyle="warning-toolbutton").pack(side=LEFT, padx=2)
+        
+        # Advanced filters
+        filters_label = ttk_boot.Label(options_frame, text="🔍 Advanced Filters:", font=("Helvetica", 10, "bold"))
+        filters_label.pack(anchor=W, pady=(10, 5))
+        
+        # Remote work filter (NEW)
+        self.remote_only_var = tk.BooleanVar(value=False)
+        ttk_boot.Checkbutton(options_frame, text="🏠 Remote jobs only", variable=self.remote_only_var, bootstyle="success-round-toggle").pack(anchor=W, pady=2, padx=10)
+        
+        # Salary filter (NEW)
+        self.salary_filter_var = tk.BooleanVar(value=False)
+        ttk_boot.Checkbutton(options_frame, text="💰 Jobs with salary info only", variable=self.salary_filter_var, bootstyle="success-round-toggle").pack(anchor=W, pady=2, padx=10)
+        
+        # Email extraction
+        self.extract_emails_var = tk.BooleanVar(value=True)
+        ttk_boot.Checkbutton(options_frame, text="📧 Extract contact emails", variable=self.extract_emails_var, bootstyle="info-round-toggle").pack(anchor=W, pady=5, padx=10)
+        
+        # Enrichment pipeline
+        self.enrich_jobs_var = tk.BooleanVar(value=True)
+        ttk_boot.Checkbutton(options_frame, text="Enrich with emails & company info", variable=self.enrich_jobs_var, bootstyle="success-round-toggle").pack(anchor=W, pady=5)
+        
+        self.send_emails_var = tk.BooleanVar(value=False)
+        ttk_boot.Checkbutton(options_frame, text="Send emails (50/day limit)", variable=self.send_emails_var, bootstyle="danger-round-toggle").pack(anchor=W, pady=5)
+        
+        # Action buttons
+        action_frame = ttk_boot.Frame(left_panel)
+        action_frame.pack(fill=X, pady=10)
+        
+        self.start_btn = ttk_boot.Button(action_frame, text="🚀 Start Scraping", command=self.start_scraping, bootstyle="success", width=20)
+        self.start_btn.pack(fill=X, pady=5)
+        
+        self.stop_btn = ttk_boot.Button(action_frame, text="⛔ Stop", command=self.stop_scraping, bootstyle="danger", width=20, state=DISABLED)
+        self.stop_btn.pack(fill=X, pady=5)
+        
+        ttk_boot.Button(action_frame, text="💾 Save Results", command=self.save_results, bootstyle="info", width=20).pack(fill=X, pady=5)
+        
+        ttk_boot.Button(action_frame, text="🗑️ Clear Results", command=self.clear_results, bootstyle="warning", width=20).pack(fill=X, pady=5)
+        
+        # === RIGHT PANEL WIDGETS ===
+        
+        # Progress section (kept compact by fixing height; resizable via sash)
+        progress_frame = ttk_boot.Labelframe(right_pane, text="📊 Progress", bootstyle="primary", padding=8)
+        progress_frame.configure(height=120)
+        progress_frame.pack_propagate(False)
+        right_pane.add(progress_frame, weight=1)
+        
+        self.progress_bar = ttk_boot.Progressbar(progress_frame, mode='indeterminate', bootstyle="success-striped")
+        self.progress_bar.pack(fill=X, pady=5)
+        
+        self.status_label = ttk_boot.Label(progress_frame, text="Ready to scrape", font=("Helvetica", 10, "bold"))
+        self.status_label.pack(anchor=W, pady=5)
+        
+        # Stats section
+        stats_frame = ttk_boot.Frame(progress_frame)
+        stats_frame.pack(fill=X, pady=5)
+        
+        self.stats_jobs = ttk_boot.Label(stats_frame, text="Jobs Found: 0", bootstyle="info")
+        self.stats_jobs.pack(side=LEFT, padx=10)
+        
+        self.stats_emails = ttk_boot.Label(stats_frame, text="Emails Found: 0", bootstyle="success")
+        self.stats_emails.pack(side=LEFT, padx=10)
+        
+        self.stats_time = ttk_boot.Label(stats_frame, text="Time: 0s", bootstyle="warning")
+        self.stats_time.pack(side=LEFT, padx=10)
+        
+        # Results section (default smaller height, user can drag sash to enlarge)
+        results_frame = ttk_boot.Labelframe(right_pane, text="📋 Results", bootstyle="success", padding=8)
+        results_frame.configure(height=260)
+        results_frame.pack_propagate(False)
+        right_pane.add(results_frame, weight=3)
+        
+        # Export buttons
+        export_btn_frame = ttk_boot.Frame(results_frame)
+        export_btn_frame.pack(fill=X, pady=(0, 5))
+        
+        ttk_boot.Button(export_btn_frame, text="💾 Export to TXT", command=self.export_jobs_to_txt, bootstyle="success-outline").pack(side=LEFT, padx=5)
+        ttk_boot.Button(export_btn_frame, text="📧 Email Results", command=self.email_jobs_to_user, bootstyle="info-outline").pack(side=LEFT, padx=5)
+        
+        # Results text area with scrollbar
+        self.results_text = scrolledtext.ScrolledText(results_frame, wrap=tk.WORD, font=("Courier", 9))
+        self.results_text.pack(fill=BOTH, expand=YES)
+        self._bind_scroll_events(self.results_text)
+        
+        # Color tags for results
+        self.results_text.tag_config("title", foreground="#2E86AB", font=("Courier", 9, "bold"))
+        self.results_text.tag_config("url", foreground="#A23B72")
+        self.results_text.tag_config("engine", foreground="#F18F01")
+        self.results_text.tag_config("email", foreground="#06A77D", font=("Courier", 9, "bold"))
+        
+    def setup_archive_tab(self):
+        """Setup the archive/history viewer"""
+        
+        # Top controls
+        controls_frame = ttk_boot.Frame(self.archive_tab)
+        controls_frame.pack(fill=X, padx=10, pady=10)
+        
+        ttk_boot.Label(controls_frame, text="📁 Scrape Archive - All Past Scrapes", font=("Helvetica", 14, "bold")).pack(side=LEFT, padx=10)
+        
+        ttk_boot.Button(controls_frame, text="🔄 Refresh", command=self.load_archive, bootstyle="info-outline").pack(side=RIGHT, padx=5)
+        ttk_boot.Button(controls_frame, text="🗑️ Clear Archive", command=self.clear_archive, bootstyle="danger-outline").pack(side=RIGHT, padx=5)
+        ttk_boot.Button(controls_frame, text="📧 Email Selected", command=self.email_selected_archive_to_address, bootstyle="success-outline").pack(side=RIGHT, padx=5)
+        
+        # Filter frame
+        filter_frame = ttk_boot.Labelframe(self.archive_tab, text="🔍 Filter", bootstyle="primary", padding=10)
+        filter_frame.pack(fill=X, padx=10, pady=5)
+        
+        ttk_boot.Label(filter_frame, text="Search:").pack(side=LEFT, padx=5)
+        self.archive_search = ttk_boot.Entry(filter_frame, width=40)
+        self.archive_search.pack(side=LEFT, padx=5)
+        self.archive_search.bind('<KeyRelease>', lambda e: self.filter_archive())
+        
+        # Archive list (treeview)
+        tree_frame = ttk_boot.Frame(self.archive_tab)
+        tree_frame.pack(fill=BOTH, expand=YES, padx=10, pady=10)
+        
+        # Scrollbars
+        tree_scroll_y = ttk_boot.Scrollbar(tree_frame, orient=VERTICAL)
+        tree_scroll_y.pack(side=RIGHT, fill=Y)
+        
+        tree_scroll_x = ttk_boot.Scrollbar(tree_frame, orient=HORIZONTAL)
+        tree_scroll_x.pack(side=BOTTOM, fill=X)
+        
+        # Treeview
+        self.archive_tree = ttk_boot.Treeview(
+            tree_frame,
+            columns=("date", "keywords", "locations", "engines", "jobs", "emails"),
+            show="tree headings",
+            yscrollcommand=tree_scroll_y.set,
+            xscrollcommand=tree_scroll_x.set
+        )
+        
+        tree_scroll_y.config(command=self.archive_tree.yview)
+        tree_scroll_x.config(command=self.archive_tree.xview)
+        
+        # Configure columns
+        self.archive_tree.heading("#0", text="ID")
+        self.archive_tree.heading("date", text="Date & Time")
+        self.archive_tree.heading("keywords", text="Keywords")
+        self.archive_tree.heading("locations", text="Locations")
+        self.archive_tree.heading("engines", text="Engines")
+        self.archive_tree.heading("jobs", text="Jobs Found")
+        self.archive_tree.heading("emails", text="Emails Found")
+        
+        self.archive_tree.column("#0", width=50, anchor="center")
+        self.archive_tree.column("date", width=180, anchor="w")
+        self.archive_tree.column("keywords", width=250, anchor="w")
+        self.archive_tree.column("locations", width=200, anchor="w")
+        self.archive_tree.column("engines", width=200, anchor="w")
+        self.archive_tree.column("jobs", width=100, anchor="center")
+        self.archive_tree.column("emails", width=100, anchor="center")
+        
+        self.archive_tree.pack(fill=BOTH, expand=YES)
+        self._bind_scroll_events(self.archive_tree)
+        
+        # Bind double-click to view details
+        self.archive_tree.bind("<Double-1>", self.view_archive_details)
+        
+        # Details panel
+        details_frame = ttk_boot.Labelframe(self.archive_tab, text="📝 Details", bootstyle="info", padding=10)
+        details_frame.pack(fill=BOTH, expand=YES, padx=10, pady=10)
+        
+        self.archive_details = scrolledtext.ScrolledText(details_frame, wrap=tk.WORD, font=("Courier", 9), height=10)
+        self.archive_details.pack(fill=BOTH, expand=YES)
+        self._bind_scroll_events(self.archive_details)
+        
+    def setup_email_tab(self):
+        """Setup email manager tab"""
+        
+        # Top section - Archive Selection
+        archive_frame = ttk_boot.Labelframe(self.email_tab, text="📂 Select Archive to Extract Emails From", bootstyle="info", padding=15)
+        archive_frame.pack(fill=X, padx=10, pady=10)
+        
+        archive_selection_row = ttk_boot.Frame(archive_frame)
+        archive_selection_row.pack(fill=X)
+        
+        ttk_boot.Label(archive_selection_row, text="Archive:").pack(side=LEFT, padx=5)
+        self.archive_dropdown = ttk_boot.Combobox(archive_selection_row, width=50, state="readonly")
+        self.archive_dropdown.pack(side=LEFT, padx=5, fill=X, expand=YES)
+        
+        ttk_boot.Button(archive_selection_row, text="📧 Load Emails from Selected Archive", command=self.load_archive_emails, bootstyle="info", width=30).pack(side=LEFT, padx=5)
+        
+        # Top section - Stats
+        stats_frame = ttk_boot.Labelframe(self.email_tab, text="📊 Email Statistics", bootstyle="primary", padding=15)
+        stats_frame.pack(fill=X, padx=10, pady=10)
+        
+        stats_grid = ttk_boot.Frame(stats_frame)
+        stats_grid.pack(fill=X)
+        
+        self.email_stats_total = ttk_boot.Label(stats_grid, text="Total Emails: 0", font=("Helvetica", 12, "bold"), bootstyle="info")
+        self.email_stats_total.grid(row=0, column=0, padx=20, pady=5)
+        
+        self.email_stats_sent_today = ttk_boot.Label(stats_grid, text="Sent Today: 0/50", font=("Helvetica", 12, "bold"), bootstyle="success")
+        self.email_stats_sent_today.grid(row=0, column=1, padx=20, pady=5)
+        
+        self.email_stats_remaining = ttk_boot.Label(stats_grid, text="Remaining: 50", font=("Helvetica", 12, "bold"), bootstyle="warning")
+        self.email_stats_remaining.grid(row=0, column=2, padx=20, pady=5)
+        
+        # Actions
+        actions_frame = ttk_boot.Labelframe(self.email_tab, text="⚡ Actions", bootstyle="success", padding=15)
+        actions_frame.pack(fill=X, padx=10, pady=10)
+        
+        btn_row = ttk_boot.Frame(actions_frame)
+        btn_row.pack(fill=X)
+        
+        ttk_boot.Button(btn_row, text="📧 Send Emails to Contacts", command=self.send_email_from_archive, bootstyle="success", width=25).pack(side=LEFT, padx=5)
+        ttk_boot.Button(btn_row, text="📊 View Email CSV", command=self.view_email_csv, bootstyle="info", width=20).pack(side=LEFT, padx=5)
+        ttk_boot.Button(btn_row, text="🔄 Refresh Stats", command=self.refresh_email_stats, bootstyle="primary", width=20).pack(side=LEFT, padx=5)
+        ttk_boot.Button(btn_row, text="🔓 Reset Daily Limit", command=self.reset_email_limit, bootstyle="warning", width=20).pack(side=LEFT, padx=5)
+        
+        # Email list
+        list_frame = ttk_boot.Labelframe(self.email_tab, text="📋 Extracted Emails from Selected Archive", bootstyle="info", padding=10)
+        list_frame.pack(fill=BOTH, expand=YES, padx=10, pady=10)
+        
+        self.email_list_text = scrolledtext.ScrolledText(list_frame, wrap=tk.WORD, font=("Courier", 9))
+        self.email_list_text.pack(fill=BOTH, expand=YES)
+        self._bind_scroll_events(self.email_list_text)
+        
+        # Initialize current archive entry tracking
+        self.current_archive_entry = None
+        self.current_archive_id = None
+        self.current_archive_emails = {}
+        
+        # Populate archive dropdown on startup
+        self.refresh_archive_dropdown()
+
+    def setup_help_tab(self):
+        """Setup help and support tab"""
+        # Simple container without scrollbar - content fits nicely
+        inner = ttk_boot.Frame(self.help_tab)
+        inner.pack(fill=BOTH, expand=YES)
+
+        # Help content
+        help_frame = ttk_boot.Labelframe(inner, text="📖 How to Use", bootstyle="info", padding=15)
+        help_frame.pack(fill=BOTH, expand=NO, padx=10, pady=10)
+
+        help_text = scrolledtext.ScrolledText(help_frame, wrap=tk.WORD, font=("Courier", 10), height=12)
+        help_text.pack(fill=BOTH, expand=YES)
+        self._bind_scroll_events(help_text)
+        help_content = """
+Getting Started
+- Enter keywords and locations, select engines (DuckDuckGo works free), then click "Start Scraping".
+- Results appear on the right; emails are extracted automatically if enabled.
+
+Saving & Archive
+- Results auto-save to output/web_jobs_ultimate.json/txt and found_emails.csv.
+- Archive tab stores past scrapes; double-click an entry to view details.
+
+Emailing Contacts
+- In Settings, enter SendGrid API key or SMTP creds (host/port/user/password).
+- Enable "Send emails" when scraping to send up to 50/day (enforced).
+
+API Keys
+- Settings tab > API & Email Credentials. Enter keys and click "Save Credentials to .env".
+
+Tips
+- Start with fewer keywords; add locations for more targeted results.
+- DuckDuckGo is the free, working engine; paid engines need keys.
+"""
+        help_text.insert(1.0, help_content)
+        help_text.config(state=DISABLED)
+
+        # Contact form
+        contact_frame = ttk_boot.Labelframe(inner, text="✉️ Contact Support", bootstyle="success", padding=15)
+        contact_frame.pack(fill=BOTH, expand=YES, padx=10, pady=10)
+
+        ttk_boot.Label(contact_frame, text="Your Email (reply-to):").pack(anchor=W)
+        self.support_from_email = ttk_boot.Entry(contact_frame)
+        self.support_from_email.pack(fill=X, pady=4)
+
+        ttk_boot.Label(contact_frame, text="Subject:").pack(anchor=W)
+        self.support_subject = ttk_boot.Entry(contact_frame)
+        self.support_subject.pack(fill=X, pady=4)
+
+        ttk_boot.Label(contact_frame, text="Message:").pack(anchor=W)
+        self.support_message = scrolledtext.ScrolledText(contact_frame, wrap=tk.WORD, height=6)
+        self.support_message.pack(fill=X, expand=False, pady=4)
+        self._bind_scroll_events(self.support_message)
+
+        action_row = ttk_boot.Frame(contact_frame)
+        action_row.pack(fill=X, pady=6)
+        self.support_status = ttk_boot.Label(action_row, text="", bootstyle="info")
+        self.support_status.pack(side=LEFT, padx=4)
+        ttk_boot.Button(action_row, text="Send to Support", bootstyle="success", command=self.send_support_message).pack(side=RIGHT)
+        
+        
+    def setup_proxy_tab(self):
+        """Setup dedicated Proxy Management tab"""
+        
+        # Main scrollable container
+        proxy_canvas = tk.Canvas(self.proxy_tab, highlightthickness=0)
+        proxy_vscroll = ttk_boot.Scrollbar(self.proxy_tab, orient=VERTICAL, command=proxy_canvas.yview)
+        proxy_inner = ttk_boot.Frame(proxy_canvas)
+        proxy_inner.bind("<Configure>", lambda e: proxy_canvas.configure(scrollregion=proxy_canvas.bbox("all")))
+        proxy_canvas.create_window((0, 0), window=proxy_inner, anchor="nw")
+        proxy_canvas.configure(yscrollcommand=proxy_vscroll.set)
+        proxy_canvas.pack(side=LEFT, fill=BOTH, expand=YES)
+        proxy_vscroll.pack(side=RIGHT, fill=Y)
+        self._bind_scroll_events_recursive(proxy_canvas, proxy_inner)
+        
+        # Header
+        header_frame = ttk_boot.Frame(proxy_inner, bootstyle="primary")
+        header_frame.pack(fill=X, padx=10, pady=10)
+        ttk_boot.Label(
+            header_frame,
+            text="🔗 Proxy Management Center",
+            font=("Helvetica", 16, "bold"),
+            foreground="#00AA00"
+        ).pack(pady=5)
+        ttk_boot.Label(
+            header_frame,
+            text="Manage proxies for anonymous job scraping • Auto-discover from GitHub • Rotate on failure",
+            font=("Helvetica", 10),
+            foreground="#e0e0e0"
+        ).pack()
+        
+        # Proxy Status Display
+        self.setup_proxy_status_display(proxy_inner)
+        
+        # Proxy controls (always expanded on proxy tab)
+        self.proxy_controls_frame = ttk_boot.Frame(proxy_inner)
+        self.proxy_controls_frame.pack(fill=BOTH, expand=YES, padx=10, pady=10)
+        self.setup_proxy_section(self.proxy_controls_frame)
+        
+        # Proxy automation settings
+        proxy_auto_frame = ttk_boot.Labelframe(proxy_inner, text="🤖 Proxy Automation", bootstyle="warning", padding=12)
+        proxy_auto_frame.pack(fill=X, padx=10, pady=10)
+
+        self.auto_proxy_enabled_var = tk.BooleanVar(value=True)
+        ttk_boot.Checkbutton(proxy_auto_frame, text="Auto-discover proxies and retry when no results are found", variable=self.auto_proxy_enabled_var, bootstyle="success-round-toggle").pack(anchor=W, pady=4)
+
+        limit_row = ttk_boot.Frame(proxy_auto_frame)
+        limit_row.pack(fill=X, pady=4)
+        ttk_boot.Label(limit_row, text="Proxies to fetch on fallback:").pack(side=LEFT)
+        self.auto_proxy_limit_var = tk.IntVar(value=5)
+        ttk_boot.Spinbox(limit_row, from_=1, to=20, textvariable=self.auto_proxy_limit_var, width=5).pack(side=LEFT, padx=6)
+        ttk_boot.Label(limit_row, text="(validated before use)", foreground="#FFFFFF").pack(side=LEFT)
+        
+        # Info section
+        info_frame = ttk_boot.Labelframe(proxy_inner, text="ℹ️ About Proxies", bootstyle="info", padding=15)
+        info_frame.pack(fill=X, padx=10, pady=10)
+        
+        info_text = """🌐 Proxy Sources (Auto-configured):
+• TheSpeedX/PROXY-List (46k+ proxies, updated daily)
+• Proxifly/free-proxy-list (6k+ proxies, every 5 min)
+• monosans/proxy-list (updated hourly with geolocation)
+• clarketm/proxy-list (updated daily)
+• Zebbern/Proxy-Scraper (hourly updates)
+• haithamaouati/ProxyList (hourly verified)
+• ProxyPool API (Python3WebSpider/ProxyPool)
+
+⚠️  Free Proxy Limitations:
+• 50-90% failure rate (normal for free proxies)
+• Rate limiting and geographic restrictions
+• Temporary availability (go online/offline frequently)
+
+💡 Recommendation:
+For production use, consider using the API integrations instead!
+APIs don't require proxies and are much more reliable (95-99% success rate).
+"""
+        ttk_boot.Label(info_frame, text=info_text, justify=LEFT, foreground="#e6e6e6").pack(anchor=W)
+    
+    def setup_settings_tab(self):
+        """Setup settings tab - API keys and application settings only"""
+        
+        # Make settings tab scrollable
+        outer_canvas = tk.Canvas(self.settings_tab, highlightthickness=0)
+        outer_vscroll = ttk_boot.Scrollbar(self.settings_tab, orient=VERTICAL, command=outer_canvas.yview)
+        settings_inner = ttk_boot.Frame(outer_canvas)
+        settings_inner.bind("<Configure>", lambda e: outer_canvas.configure(scrollregion=outer_canvas.bbox("all")))
+        outer_canvas.create_window((0, 0), window=settings_inner, anchor="nw")
+        outer_canvas.configure(yscrollcommand=outer_vscroll.set)
+        outer_canvas.pack(side=LEFT, fill=BOTH, expand=YES)
+        outer_vscroll.pack(side=RIGHT, fill=Y)
+        # Enable scroll from anywhere inside the settings tab
+        self._bind_scroll_events_recursive(outer_canvas, settings_inner)
+        
+        settings_frame = ttk_boot.Labelframe(settings_inner, text="⚙️ Application Settings", bootstyle="primary", padding=12)
+        settings_frame.pack(fill=BOTH, expand=NO, padx=10, pady=8)
+        
+        # Output directory
+        ttk_boot.Label(settings_frame, text="Output Directory:", font=("Helvetica", 10, "bold")).pack(anchor=W, pady=5)
+        
+        dir_frame = ttk_boot.Frame(settings_frame)
+        dir_frame.pack(fill=X, pady=5)
+        
+        self.output_dir = ttk_boot.Entry(dir_frame)
+        self.output_dir.insert(0, "output")
+        self.output_dir.pack(side=LEFT, fill=X, expand=YES, padx=(0, 5))
+        
+        ttk_boot.Button(dir_frame, text="Browse", command=self.browse_output_dir, bootstyle="info-outline").pack(side=RIGHT)
+        
+        # ===== COMPREHENSIVE INSTRUCTIONS =====
+        ttk_boot.Label(settings_inner, text="📋 HOW TO GET API KEYS & CREDENTIALS", font=("Helvetica", 10, "bold"), bootstyle="success").pack(anchor=W, padx=10, pady=(10, 5))
+        
+        instructions_frame = ttk_boot.Labelframe(settings_inner, text="Step-by-Step Instructions", bootstyle="info", padding=8)
+        instructions_frame.pack(fill=BOTH, expand=NO, padx=10, pady=4)
+
+        instructions_text = scrolledtext.ScrolledText(instructions_frame, wrap=tk.WORD, height=4, font=("Courier", 8))
+        instructions_text.pack(fill=BOTH, expand=YES)
+        self._bind_scroll_events(instructions_text)
+        
+        instructions = """
+🔍 GOOGLE API + CUSTOM SEARCH ENGINE (CSE)
+1. Go to cse.google.com - Create a new Custom Search Engine
+2. Go to console.cloud.google.com > Create a new project
+3. Enable "Custom Search API" in APIs & Services
+4. Create an API key in "Credentials" section
+5. Copy both: GOOGLE_API_KEY and GOOGLE_CSE_ID from CSE settings
+
+🔎 BING SEARCH API
+1. Go to portal.azure.com - Create a new resource
+2. Search for "Bing Search v7"
+3. Create the resource and copy the API Key
+
+🔗 SERPAPI (Google Search API)
+1. Go to serpapi.com - Sign up for free account (100 searches/month free)
+2. Get your API key from dashboard
+
+📧 SENDGRID (Email Sending)
+1. Go to sendgrid.com - Create free account
+2. Go to Settings > API Keys > Create API Key (Full Access or Mail Send)
+
+📧 GMAIL SMTP (Alternative to SendGrid)
+1. Enable 2-Step Verification on your Google Account
+2. Go to myaccount.google.com > Security > App passwords
+3. Select "Mail" and "Windows Computer"
+4. Use generated 16-char app password as SMTP_PASSWORD
+   Settings: smtp.gmail.com:587, your@gmail.com
+
+🚀 RAPIDAPI JOB SCRAPER APIS (Professional Job Data)
+1. Go to rapidapi.com - Create FREE account
+2. Browse to "Jobs" category or search for specific APIs:
+   • "LinkedIn Job Search API" - 10M+ jobs, no cookies needed
+   • "Indeed Jobs Scraper API" - Bypass 25-result limit
+   • "Glassdoor API" - Reviews, salaries, interviews
+   • "Job Listings Aggregator" - 8+ platforms in one
+3. Subscribe to API (most have FREE tier: 100-500 requests/month)
+4. Copy your "X-RapidAPI-Key" from API dashboard
+5. Enter as RAPIDAPI_KEY below (works for all RapidAPI services)
+6. Optional: Get specific API keys for individual services
+
+🔗 LINKEDIN/INDEED/GLASSDOOR API KEYS
+1. If using RapidAPI, your RAPIDAPI_KEY works for all job APIs
+2. Or get direct API keys from each platform's developer portal
+3. LinkedIn: developers.linkedin.com (requires company verification)
+4. Indeed: indeed.com/publisher (employer posting API)
+5. Glassdoor: glassdoor.com/developer (limited access)
+
+🌐 PROXY SOURCES (Auto-configured)
+Proxies are auto-discovered from multiple GitHub repos + APIs:
+• TheSpeedX/PROXY-List (46k+ proxies, daily updates)
+• Proxifly/free-proxy-list (6k+ proxies, every 5 min)
+• monosans/proxy-list (hourly with geolocation)
+• clarketm/proxy-list (daily updates)
+• Zebbern/Proxy-Scraper (hourly updates)
+• haithamaouati/ProxyList (hourly verified)
+• ProxyPool API (Python3WebSpider/ProxyPool)
+No manual configuration needed - just click "Find Proxies" in Proxy tab!
+"""
+        instructions_text.insert(1.0, instructions)
+        instructions_text.config(state=DISABLED)        # Editable API credentials (scrollable)
+        creds_outer = ttk_boot.Labelframe(self.settings_tab, text="🔑 API & Email Credentials (writes to .env)", bootstyle="success", padding=10)
+        creds_outer.pack(fill=BOTH, expand=YES, padx=10, pady=10)
+
+        canvas = tk.Canvas(creds_outer, height=1200, highlightthickness=0)
+        vscroll = ttk_boot.Scrollbar(creds_outer, orient=VERTICAL, command=canvas.yview)
+        creds_frame = ttk_boot.Frame(canvas)
+        creds_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=creds_frame, anchor="nw")
+        canvas.configure(yscrollcommand=vscroll.set)
+        canvas.pack(side=LEFT, fill=BOTH, expand=YES)
+        vscroll.pack(side=RIGHT, fill=Y)
+
+        self.env_entries = {}
+        fields = [
+            ("Google API Key", "GOOGLE_API_KEY"),
+            ("Google CSE ID", "GOOGLE_CSE_ID"),
+            ("Bing API Key", "BING_API_KEY"),
+            ("SerpAPI Key", "SERPAPI_KEY"),
+            ("SendGrid API Key", "SENDGRID_API_KEY"),
+            ("SMTP Host", "SMTP_HOST"),
+            ("SMTP Port", "SMTP_PORT"),
+            ("SMTP User", "SMTP_USER"),
+            ("SMTP Password / App Password", "SMTP_PASSWORD"),
+            ("LinkedIn Email", "LINKEDIN_EMAIL"),
+            ("LinkedIn Password", "LINKEDIN_PASSWORD"),
+            ("--- JOB SCRAPER APIs (RapidAPI) ---", "_SEPARATOR_1"),
+            ("RapidAPI Key (works for all below)", "RAPIDAPI_KEY"),
+            ("LinkedIn Job Search API Key", "LINKEDIN_API_KEY"),
+            ("Indeed Jobs Scraper API Key", "INDEED_API_KEY"),
+            ("Glassdoor API Key", "GLASSDOOR_API_KEY"),
+            ("Greenhouse Jobs API Key", "GREENHOUSE_API_KEY"),
+            ("Lever Jobs API Key", "LEVER_API_KEY"),
+            ("Remote Jobs API Key (RemoteOK/WWR)", "REMOTE_JOBS_API_KEY"),
+            ("Job Aggregator API Key (Multi-platform)", "JOB_AGGREGATOR_API_KEY"),
+        ]
+
+        for label_text, key in fields:
+            if key.startswith('_SEPARATOR_'):
+                # Render separator label (no entry field)
+                sep_row = ttk_boot.Frame(creds_frame)
+                sep_row.pack(fill=X, pady=(10, 4))
+                ttk_boot.Label(sep_row, text=label_text, font=("Helvetica", 9, "bold"), foreground="#00AA00").pack(anchor=W)
+                continue
+            
+            row = ttk_boot.Frame(creds_frame)
+            row.pack(fill=X, pady=4)
+            ttk_boot.Label(row, text=label_text, width=28, anchor=W, font=("Helvetica", 9)).pack(side=LEFT, padx=(5,10))
+            ent = ttk_boot.Entry(row, font=("Helvetica", 9))
+            ent.pack(side=LEFT, fill=X, expand=YES, padx=(0, 5))
+            self.env_entries[key] = ent
+
+        ttk_boot.Button(creds_frame, text="💾 Save Credentials to .env", bootstyle="success", command=self.save_env_settings).pack(anchor=E, pady=10)
+
+        # Load existing .env values into fields
+        self.load_env_settings()
+        
+        # ===== ENGINE SELECTION (info only here; toggles are on Scraper tab) =====
+        engine_frame = ttk_boot.Labelframe(settings_inner, text="🔍 Job Search Engines", bootstyle="info", padding=12)
+        engine_frame.pack(fill=X, padx=10, pady=10)
+        ttk_boot.Label(
+            engine_frame,
+            text="Select and toggle engines in the Scraper tab. This section is informational to avoid duplicate switches.",
+            font=("Helvetica", 9),
+            wraplength=500,
+            justify=LEFT,
+        ).pack(anchor=W, pady=(0, 5))
+        ttk_boot.Label(
+            engine_frame,
+            text="Available engines: DuckDuckGo, Startpage, SerpAPI, Google CSE, Bing, LinkedIn, Indeed, Greenhouse, Lever, SimplyHired, RemoteOK, WeWorkRemotely, Remotive.",
+            foreground="#FFFFFF",
+            wraplength=500,
+            justify=LEFT,
+        ).pack(anchor=W)
+        
+        # About section
+        # API Browser Section
+        api_browser_frame = ttk_boot.Labelframe(settings_inner, text="🔍 Browse Available Job APIs", bootstyle="primary", padding=12)
+        api_browser_frame.pack(fill=BOTH, expand=YES, padx=10, pady=10)
+        
+        ttk_boot.Label(
+            api_browser_frame, 
+            text="Explore 848 Job Scraper APIs from the API Mega List",
+            font=("Helvetica", 10, "bold"),
+            foreground="#0088FF"
+        ).pack(pady=(0, 5))
+        
+        ttk_boot.Label(
+            api_browser_frame,
+            text="Click below to browse the complete catalog of job-related APIs",
+            foreground="#FFFFFF"
+        ).pack(pady=(0, 10))
+        
+        # Button to open API catalog
+        def open_api_catalog():
+            import webbrowser
+            webbrowser.open("https://github.com/cporter202/API-mega-list/blob/main/jobs-apis-848")
+        
+        ttk_boot.Button(
+            api_browser_frame,
+            text="🌐 Open API Catalog (848 Job APIs)",
+            command=open_api_catalog,
+            bootstyle="info",
+            width=40
+        ).pack(pady=5)
+        
+        # Quick API recommendations
+        rec_frame = ttk_boot.Frame(api_browser_frame)
+        rec_frame.pack(fill=X, pady=10)
+        
+        ttk_boot.Label(rec_frame, text="⭐ Recommended APIs:", font=("Helvetica", 9, "bold")).pack(anchor=W)
+        
+        recommendations = [
+            "• LinkedIn Job Search API - 10M+ jobs/month, no cookies",
+            "• Indeed Jobs Scraper API - Bypass 25-result limit",
+            "• Glassdoor API - Reviews, salaries, interviews",
+            "• Job Aggregator Pro - 8+ platforms in one call",
+            "• Remote Jobs API - RemoteOK, WWR, Remotive combined"
+        ]
+        
+        for rec in recommendations:
+            ttk_boot.Label(rec_frame, text=rec, foreground="#00AA00", font=("Courier", 8)).pack(anchor=W, padx=10)
+        
+        ttk_boot.Label(
+            api_browser_frame,
+            text="💡 Tip: Most APIs offer FREE tiers (100-500 requests/month)",
+            foreground="#FF8800",
+            font=("Helvetica", 9, "italic")
+        ).pack(pady=(10, 0))
+        
+        about_frame = ttk_boot.Labelframe(settings_inner, text="ℹ️ About", bootstyle="info", padding=20)
+        about_frame.pack(fill=X, padx=10, pady=10)
+        
+        ttk_boot.Label(about_frame, text="JobGoblin - Lead Finder", font=("Helvetica", 14, "bold"), foreground="#e6e6e6").pack(pady=5)
+        ttk_boot.Label(about_frame, text="🟢 Created by NERDY BIRD IT 🟢", font=("Helvetica", 11, "bold"), foreground="#e6e6e6").pack(pady=3)
+        ttk_boot.Label(about_frame, text="📧 nerdybirdit@gmail.com", font=("Helvetica", 10), foreground="#e6e6e6").pack(pady=2)
+        ttk_boot.Label(about_frame, text="📱 WhatsApp: +1 (412) 773-4245", font=("Helvetica", 10), foreground="#e6e6e6").pack(pady=2)
+        ttk_boot.Label(about_frame, text="Version 2.0 - December 2025", foreground="#e6e6e6").pack(pady=2)
+        ttk_boot.Label(about_frame, text="Professional job scraping and email campaign tool", foreground="#e6e6e6").pack(pady=2)
+    
+    def setup_proxy_status_display(self, parent):
+        """Compact proxy status display at TOP of settings"""
+        try:
+            self.proxy_manager = ProxyManager()
+            self.proxy_finder = ProxyFinder()
+        except Exception as e:
+            print(f"Error initializing proxy managers: {e}", file=sys.stderr)
+            self.proxy_manager = None
+            self.proxy_finder = None
+            return
+
+        # Top banner with current proxy status
+        proxy_banner = ttk_boot.Frame(parent, bootstyle="success")
+        proxy_banner.pack(fill=X, padx=0, pady=(0, 3))
+        
+        title_row = ttk_boot.Frame(proxy_banner)
+        title_row.pack(fill=X, padx=6, pady=(3, 2))
+        ttk_boot.Label(title_row, text="🔗 PROXIES CURRENTLY IN USE", font=("Arial", 9, "bold"), bootstyle="success").pack(anchor=W)
+        
+        # Proxy display box (larger, higher contrast)
+        self.proxy_display_text = scrolledtext.ScrolledText(
+            proxy_banner,
+            wrap=tk.WORD,
+            height=10,
+            font=("Courier", 9),
+            bg="#1f1f1f",
+            fg="#e6e6e6",
+            insertbackground="#e6e6e6"
+        )
+        self.proxy_display_text.pack(fill=BOTH, expand=YES, padx=6, pady=(0, 2))
+        self._bind_scroll_events(self.proxy_display_text)
+        self.proxy_display_text.config(state=DISABLED)
+        
+        # Initial display
+        self.update_active_proxies_display()
+
+    def append_proxy_log(self, message: str):
+        """Append a line to the proxy discovery log widget if present."""
+        if hasattr(self, "proxy_discovery_log") and self.proxy_discovery_log:
+            def _write():
+                self.proxy_discovery_log.config(state=NORMAL)
+                self.proxy_discovery_log.insert(END, message.rstrip() + "\n")
+                self.proxy_discovery_log.see(END)
+                self.proxy_discovery_log.config(state=DISABLED)
+            try:
+                self.root.after(0, _write)
+            except Exception:
+                _write()
+    
+    def show_proxy_editor(self, parent):
+        """Show expandable proxy editor section"""
+        if not hasattr(self, 'proxy_editor_shown'):
+            self.proxy_editor_shown = False
+        if self.proxy_editor_shown:
+            return
+        self.proxy_editor_shown = True
+        # Render inside the dedicated holder near top for visibility
+        target = getattr(self, 'proxy_controls_frame', parent)
+        self.setup_proxy_section(target)
+        
+    def setup_proxy_section(self, parent):
+        """Proxy management UI embedded in settings"""
+        if not hasattr(self, 'proxy_manager') or self.proxy_manager is None:
+            return
+
+
+        """Proxy management UI embedded in settings"""
+        try:
+            self.proxy_manager = ProxyManager()
+            self.proxy_finder = ProxyFinder()
+        except Exception as e:
+            print(f"Error initializing proxy managers: {e}", file=sys.stderr)
+            self.proxy_manager = None
+            self.proxy_finder = None
+            return
+
+        # Title
+        title_frame = ttk_boot.Frame(parent)
+        title_frame.pack(fill=X, padx=6, pady=4)
+        ttk_boot.Label(title_frame, text="🔗 Proxy Manager", font=("Arial", 10, "bold"), foreground="#e6e6e6").pack(anchor=W)
+        ttk_boot.Label(title_frame, text="Add proxies to bypass rate limiting and blocks", font=("Arial", 8), foreground="#e6e6e6").pack(anchor=W)
+
+        # Auto-discovery section
+        discover_frame = ttk_boot.Labelframe(parent, text="🔍 Auto-Discover Proxies", bootstyle="warning", padding=4)
+        discover_frame.pack(fill=X, padx=5, pady=3)
+
+        discover_btn_frame = ttk_boot.Frame(discover_frame)
+        discover_btn_frame.pack(fill=X, pady=2)
+
+        ttk_boot.Label(discover_btn_frame, text="Auto-search all GitHub sources:", font=("Arial", 8), foreground="#e6e6e6").pack(side=LEFT, padx=2)
+
+        self.discover_count_var = tk.StringVar(value="10")
+        ttk_boot.Label(discover_btn_frame, text="Count:", foreground="#e6e6e6").pack(side=LEFT, padx=2)
+        count_spin = ttk_boot.Spinbox(discover_btn_frame, from_=1, to=50, textvariable=self.discover_count_var, width=4)
+        count_spin.pack(side=LEFT, padx=1)
+
+        ttk_boot.Button(discover_btn_frame, text="🔍 Find Proxies", command=self.discover_and_add_proxies, bootstyle="success").pack(side=LEFT, padx=5)
+
+        self.discover_status = ttk_boot.Label(discover_frame, text="", bootstyle="info")
+        self.discover_status.pack(anchor=W, pady=2)
+
+        # Mid-section: two columns (left: add new, right: discovery log + configured list)
+        mid_frame = ttk_boot.Frame(parent)
+        mid_frame.pack(fill=BOTH, expand=YES, padx=5, pady=4)
+
+        left_col = ttk_boot.Frame(mid_frame)
+        left_col.pack(side=LEFT, fill=BOTH, expand=YES, padx=3)
+
+        right_col = ttk_boot.Frame(mid_frame)
+        right_col.pack(side=LEFT, fill=BOTH, expand=YES, padx=3)
+
+        # Left side - Add new proxy
+        add_frame = ttk_boot.Labelframe(left_col, text="➕ Add New Proxy", bootstyle="info", padding=6)
+        add_frame.pack(fill=BOTH, expand=YES, pady=3)
+
+        ttk_boot.Label(add_frame, text="Proxy URL (e.g., http://123.45.67.89:8080):", font=("Arial", 8), foreground="#e6e6e6").pack(anchor=W)
+        self.proxy_url_entry = ttk_boot.Entry(add_frame, width=50)
+        self.proxy_url_entry.pack(fill=X, pady=2)
+
+        type_frame = ttk_boot.Frame(add_frame)
+        type_frame.pack(fill=X, pady=2)
+        ttk_boot.Label(type_frame, text="Type:", foreground="#e6e6e6").pack(side=LEFT)
+        self.proxy_type_var = tk.StringVar(value="http")
+        for ptype in ["http", "socks5", "socks4"]:
+            ttk_boot.Radiobutton(type_frame, text=ptype, variable=self.proxy_type_var, value=ptype).pack(side=LEFT, padx=5)
+
+        cred_frame = ttk_boot.Frame(add_frame)
+        cred_frame.pack(fill=X, pady=2)
+        ttk_boot.Label(cred_frame, text="Username (optional):", font=("Arial", 8), foreground="#e6e6e6").pack(side=LEFT)
+        self.proxy_user_entry = ttk_boot.Entry(cred_frame, width=18)
+        self.proxy_user_entry.pack(side=LEFT, padx=2)
+        ttk_boot.Label(cred_frame, text="Password:", font=("Arial", 8), foreground="#e6e6e6").pack(side=LEFT)
+        self.proxy_pass_entry = ttk_boot.Entry(cred_frame, width=18, show="*")
+        self.proxy_pass_entry.pack(side=LEFT, padx=2)
+
+        btn_frame = ttk_boot.Frame(add_frame)
+        btn_frame.pack(fill=X, pady=4)
+        ttk_boot.Button(btn_frame, text="Add Proxy", command=self.add_proxy_action, bootstyle="success").pack(side=LEFT, padx=5)
+        ttk_boot.Button(btn_frame, text="Test Proxy", command=self.test_proxy_action, bootstyle="info").pack(side=LEFT, padx=5)
+
+        # Right side - Discovery log + Configured proxies
+        log_frame = ttk_boot.Labelframe(right_col, text="📜 Discovery Log", bootstyle="info")
+        log_frame.pack(fill=BOTH, expand=YES, padx=0, pady=(0, 4))
+        self.proxy_discovery_log = scrolledtext.ScrolledText(
+            log_frame,
+            wrap=tk.WORD,
+            height=10,
+            font=("Courier", 8),
+            bg="#101010",
+            fg="#e6e6e6",
+            insertbackground="#e6e6e6"
+        )
+        self.proxy_discovery_log.pack(fill=BOTH, expand=YES, padx=4, pady=4)
+        self._bind_scroll_events(self.proxy_discovery_log)
+        self.proxy_discovery_log.config(state=DISABLED)
+
+        list_frame = ttk_boot.Labelframe(right_col, text="📋 Configured Proxies", bootstyle="success", padding=6)
+        list_frame.pack(fill=BOTH, expand=YES, pady=3)
+
+        list_scroll = ttk_boot.Frame(list_frame)
+        list_scroll.pack(fill=BOTH, expand=YES)
+        scrollbar = ttk_boot.Scrollbar(list_scroll)
+        scrollbar.pack(side=RIGHT, fill=Y)
+        self.proxy_listbox = tk.Listbox(
+            list_scroll,
+            yscrollcommand=scrollbar.set,
+            height=6,
+            font=("Courier", 8),
+            bg="#1c1c1c",
+            fg="#e6e6e6",
+        )
+        self.proxy_listbox.pack(side=LEFT, fill=BOTH, expand=YES)
+        scrollbar.config(command=self.proxy_listbox.yview)
+
+        # Now safe to call refresh_proxy_list
+        self.refresh_proxy_list()
+
+        action_frame = ttk_boot.Frame(list_frame)
+        action_frame.pack(fill=X, pady=4)
+        ttk_boot.Button(action_frame, text="Remove Selected", command=self.remove_proxy_action, bootstyle="danger").pack(side=LEFT, padx=2)
+        ttk_boot.Button(action_frame, text="Test Selected", command=self.test_selected_proxy, bootstyle="info").pack(side=LEFT, padx=2)
+
+
+
+        info_frame = ttk_boot.Labelframe(parent, text="ℹ️ How to Get Proxies", bootstyle="secondary", padding=6)
+        info_frame.pack(fill=X, padx=5, pady=4)
+
+        # Use Text widget for clickable hyperlinks
+        info_text_widget = tk.Text(
+            info_frame,
+            height=10,
+            width=60,
+            wrap=WORD,
+            font=("Courier", 7),
+            bg="#1c1c1c",
+            fg="#e6e6e6",
+            insertbackground="#e6e6e6",
+        )
+        info_text_widget.pack(fill=BOTH, expand=True, padx=2, pady=2)
+        
+        # Configure tag for links
+        info_text_widget.tag_config("link", foreground="#66b3ff", underline=True)
+        info_text_widget.tag_config("normal", foreground="white")
+        
+        # Insert text with links
+        info_text_widget.insert(END, "Free proxy lists (quality varies):\n", "normal")
+        info_text_widget.insert(END, "• ", "normal")
+        info_text_widget.insert(END, "https://www.proxy-list.download/", "link")
+        info_text_widget.insert(END, "\n", "normal")
+        info_text_widget.insert(END, "• ", "normal")
+        info_text_widget.insert(END, "https://www.freeproxylists.net/", "link")
+        info_text_widget.insert(END, "\n", "normal")
+        info_text_widget.insert(END, "• ", "normal")
+        info_text_widget.insert(END, "https://free-proxy-list.com/", "link")
+        info_text_widget.insert(END, "\n\nPaid proxy services (more reliable):\n", "normal")
+        info_text_widget.insert(END, "• Bright Data (formerly Luminati)\n• Oxylabs\n• Smartproxy\n• Residential proxies from various providers\n\n", "normal")
+        info_text_widget.insert(END, "Format: ", "normal")
+        info_text_widget.insert(END, "http://ip:port", "link")
+        info_text_widget.insert(END, " or ", "normal")
+        info_text_widget.insert(END, "socks5://ip:port", "link")
+        info_text_widget.insert(END, "\nWith auth: ", "normal")
+        info_text_widget.insert(END, "http://user:pass@ip:port", "link")
+        
+        # Make it read-only
+        info_text_widget.config(state=DISABLED)
+        
+        # Bind click event for links
+        def on_link_click(event):
+            import webbrowser
+            widget = event.widget
+            index = widget.index("@%d,%d" % (event.x, event.y))
+            tag_indices = widget.tag_ranges("link")
+            
+            for i in range(0, len(tag_indices), 2):
+                tag_start = tag_indices[i]
+                tag_end = tag_indices[i+1]
+                
+                if widget.compare(tag_start, "<=", index) and widget.compare(index, "<", tag_end):
+                    url = widget.get(tag_start, tag_end)
+                    # Add scheme if missing
+                    if not url.startswith(("http://", "https://", "socks5://", "socks4://")):
+                        url = "http://" + url
+                    webbrowser.open(url)
+                    break
+        
+        info_text_widget.bind("<Button-1>", on_link_click)
+        info_text_widget.config(cursor="hand2" if tk.TkVersion >= 8.5 else "arrow")
+        
+    # === HELPER METHODS ===
+    
+    def center_main_window(self):
+        """Center the main root window on screen"""
+        self.root.update_idletasks()
+        width = self.root.winfo_width()
+        height = self.root.winfo_height()
+        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        self.root.geometry(f"{width}x{height}+{x}+{y}")
+
+    def add_proxy_action(self):
+        """Add proxy from GUI"""
+        url = self.proxy_url_entry.get().strip()
+        proxy_type = self.proxy_type_var.get()
+        username = self.proxy_user_entry.get().strip()
+        password = self.proxy_pass_entry.get().strip()
+
+        if not url:
+            messagebox.showerror("Error", "Please enter a proxy URL")
+            return
+
+        if self.proxy_manager.add_proxy(url, proxy_type, username, password):
+            messagebox.showinfo("Success", "Proxy added successfully!")
+            self.proxy_url_entry.delete(0, tk.END)
+            self.proxy_user_entry.delete(0, tk.END)
+            self.proxy_pass_entry.delete(0, tk.END)
+            self.refresh_proxy_list()
+        else:
+            messagebox.showerror("Error", "Failed to add proxy")
+
+    def remove_proxy_action(self):
+        """Remove selected proxy"""
+        sel = self.proxy_listbox.curselection()
+        if not sel:
+            messagebox.showwarning("Warning", "Please select a proxy to remove")
+            return
+        idx = sel[0]
+        if self.proxy_manager.remove_proxy(idx):
+            messagebox.showinfo("Success", "Proxy removed")
+            self.refresh_proxy_list()
+        else:
+            messagebox.showerror("Error", "Failed to remove proxy")
+
+    def test_proxy_action(self):
+        """Test proxy from input field"""
+        url = self.proxy_url_entry.get().strip()
+        if not url:
+            messagebox.showerror("Error", "Please enter a proxy URL to test")
+            return
+
+        username = self.proxy_user_entry.get().strip()
+        password = self.proxy_pass_entry.get().strip()
+
+        proxy_dict = {
+            'url': url,
+            'type': self.proxy_type_var.get(),
+            'username': username,
+            'password': password,
+        }
+
+        messagebox.showinfo("Testing", "Testing proxy... This may take a moment.")
+
+        def test_in_thread():
+            result = self.proxy_manager.test_proxy(proxy_dict, verbose=True)
+            self.root.after(0, lambda: messagebox.showinfo("Test Result",
+                f"Proxy {'✓ WORKING' if result else '✗ FAILED'}\n\nURL: {url}"))
+
+        threading.Thread(target=test_in_thread, daemon=True).start()
+
+    def test_selected_proxy(self):
+        """Test selected proxy from list"""
+        sel = self.proxy_listbox.curselection()
+        if not sel:
+            messagebox.showwarning("Warning", "Please select a proxy to test")
+            return
+
+        idx = sel[0]
+        proxies = self.proxy_manager.get_all_proxies()
+        if idx >= len(proxies):
+            messagebox.showerror("Error", "Invalid proxy selection")
+            return
+
+        proxy_dict = proxies[idx]
+        messagebox.showinfo("Testing", "Testing proxy... This may take a moment.")
+
+        def test_in_thread():
+            result = self.proxy_manager.test_proxy(proxy_dict, verbose=True)
+            self.root.after(0, lambda: messagebox.showinfo("Test Result",
+                f"Proxy {'✓ WORKING' if result else '✗ FAILED'}\n\nURL: {proxy_dict.get('url')}"))
+
+        threading.Thread(target=test_in_thread, daemon=True).start()
+
+    def refresh_proxy_list(self):
+        """Refresh the proxy listbox"""
+        self.proxy_listbox.delete(0, tk.END)
+        proxies = self.proxy_manager.get_all_proxies()
+        for i, proxy in enumerate(proxies):
+            status = "✓" if proxy.get('enabled', True) else "✗"
+            url = proxy.get('url', 'Unknown')
+            auth = " (with auth)" if proxy.get('username') else ""
+            display = f"{status} [{i}] {url}{auth}"
+            self.proxy_listbox.insert(tk.END, display)
+        
+        # Update active proxies display
+        self.update_active_proxies_display()
+
+    def update_active_proxies_display(self):
+        """Update the display of currently active proxies in the settings banner"""
+        if not hasattr(self, 'proxy_display_text'):
+            return
+            
+        proxies = self.proxy_manager.get_all_proxies()
+        enabled_proxies = [p for p in proxies if p.get('enabled', True)]
+        
+        if not enabled_proxies:
+            status_text = "⚠️  No active proxies configured\n\nClick 'Add/Find Proxies' to auto-discover, or manually add proxies."
+        else:
+            status_text = f"✓ {len(enabled_proxies)} active proxy(ies):\n\n"
+            for i, proxy in enumerate(enabled_proxies, 1):
+                url = proxy.get('url', 'Unknown')
+                ptype = proxy.get('type', 'http').upper()
+                auth = " 🔐" if proxy.get('username') else ""
+                status = "✓" if proxy.get('enabled', True) else "✗"
+                status_text += f"{status} {i}. [{ptype}] {url}{auth}\n"
+        
+        # Update text widget
+        self.proxy_display_text.config(state=NORMAL)
+        self.proxy_display_text.delete(1.0, tk.END)
+        self.proxy_display_text.insert(1.0, status_text)
+        self.proxy_display_text.config(state=DISABLED)
+
+    def show_proxy_status_dialog(self):
+        """Show detailed proxy status dialog"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Proxy Status & Details")
+        dialog.geometry("800x600")
+        dialog.resizable(True, True)
+        
+        # Center on screen
+        dialog.update_idletasks()
+        x = (self.root.winfo_screenwidth() // 2) - (400)
+        y = (self.root.winfo_screenheight() // 2) - (300)
+        dialog.geometry(f"800x600+{x}+{y}")
+        
+        # Title
+        title_frame = ttk_boot.Frame(dialog)
+        title_frame.pack(fill=X, padx=20, pady=15)
+        ttk_boot.Label(title_frame, text="📊 Proxy Status & Configuration", font=("Arial", 14, "bold")).pack(anchor=W)
+        
+        # Main content area with scrolling
+        content_frame = ttk_boot.Frame(dialog)
+        content_frame.pack(fill=BOTH, expand=YES, padx=20, pady=10)
+        
+        status_text = scrolledtext.ScrolledText(content_frame, wrap=tk.WORD, height=25, font=("Courier", 10), relief=tk.FLAT)
+        status_text.pack(fill=BOTH, expand=YES)
+        self._bind_scroll_events(status_text)
+        
+        # Build status report
+        report = "═══════════════════════════════════════════════════════════\n"
+        report += "                  PROXY STATUS REPORT\n"
+        report += "═══════════════════════════════════════════════════════════\n\n"
+        
+        proxies = self.proxy_manager.get_all_proxies()
+        
+        if not proxies:
+            report += "⚠️  NO PROXIES CONFIGURED\n\n"
+            report += "To add proxies, either:\n"
+            report += "  1. Click 'Find & Add Proxies' for automatic discovery\n"
+            report += "  2. Manually add proxies in the 'Add New Proxy' section above\n"
+        else:
+            # Count active/inactive
+            active = [p for p in proxies if p.get('enabled', True)]
+            inactive = [p for p in proxies if not p.get('enabled', True)]
+            
+            report += f"📊 SUMMARY\n"
+            report += f"  Total Proxies: {len(proxies)}\n"
+            report += f"  Active: {len(active)} ✓\n"
+            report += f"  Inactive: {len(inactive)} ✗\n\n"
+            
+            # List active proxies
+            if active:
+                report += "═══════════════════════════════════════════════════════════\n"
+                report += "🟢 ACTIVE PROXIES (Being Used)\n"
+                report += "═══════════════════════════════════════════════════════════\n\n"
+                
+                for idx, proxy in enumerate(active, 1):
+                    url = proxy.get('url', 'Unknown')
+                    ptype = proxy.get('type', 'http').upper()
+                    username = proxy.get('username', 'None')
+                    has_auth = "Yes 🔐" if proxy.get('username') else "No"
+                    tested = proxy.get('last_tested', 'Not tested')
+                    working = proxy.get('working', True)
+                    
+                    report += f"  [{idx}] {url}\n"
+                    report += f"       Type: {ptype}\n"
+                    report += f"       Auth: {has_auth}\n"
+                    report += f"       Working: {'✓ Yes' if working else '✗ No'}\n"
+                    report += f"       Last Tested: {tested}\n\n"
+            
+            # List inactive proxies
+            if inactive:
+                report += "═══════════════════════════════════════════════════════════\n"
+                report += "⚫ INACTIVE PROXIES (Not Being Used)\n"
+                report += "═══════════════════════════════════════════════════════════\n\n"
+                
+                for idx, proxy in enumerate(inactive, 1):
+                    url = proxy.get('url', 'Unknown')
+                    ptype = proxy.get('type', 'http').upper()
+                    
+                    report += f"  [{idx}] {url} [{ptype}]\n"
+        
+        # Add usage info
+        report += "\n"
+        report += "═══════════════════════════════════════════════════════════\n"
+        report += "ℹ️  HOW PROXIES ARE USED\n"
+        report += "═══════════════════════════════════════════════════════════\n\n"
+        report += "• Active proxies are automatically rotated during scraping\n"
+        report += "• If a proxy fails, the next one is used automatically\n"
+        report += "• When no results are found, new proxies are auto-discovered\n"
+        report += "• Test proxies before use to ensure they're working\n"
+        report += "• Remove non-working proxies to improve performance\n"
+        
+        status_text.insert(1.0, report)
+        status_text.config(state=DISABLED)
+        
+        # Close button
+        btn_frame = ttk_boot.Frame(dialog)
+        btn_frame.pack(fill=X, padx=20, pady=15)
+        ttk_boot.Button(btn_frame, text="Close", command=dialog.destroy, bootstyle="info").pack(side=RIGHT)
+
+    def discover_and_add_proxies(self):
+        """Auto-discover proxies from the web and add them"""
+        try:
+            count = int(self.discover_count_var.get())
+        except Exception:
+            count = 5
+
+        self.discover_status.config(text="🔍 Searching 9 sources (GitHub repos + ProxyPool API)...", bootstyle="info")
+        self.append_proxy_log(f"\n🔍 Searching all sources for up to {count} working proxies...")
+        self.root.update()
+
+        def discover_in_thread():
+            try:
+                # Fetch candidates from all sources, then test them ourselves to surface logs
+                limit_per_source = max(3, min(10, count))
+                candidates = self.proxy_finder.find_all_sources(limit_per_source=limit_per_source, verbose=False)
+                self.append_proxy_log(f"🛈 Discovered {len(candidates)} candidate proxies; testing for live ones...")
+
+                added_count = 0
+                for proxy_url in candidates:
+                    self.append_proxy_log(f"• Testing {proxy_url}")
+                    try:
+                        if self.proxy_finder.test_proxy(proxy_url, verbose=False):
+                            if proxy_url.startswith("socks5://"):
+                                ptype = "socks5"
+                            elif proxy_url.startswith("socks4://"):
+                                ptype = "socks4"
+                            else:
+                                ptype = "http"
+                            if self.proxy_manager.add_proxy(proxy_url, proxy_type=ptype):
+                                added_count += 1
+                                self.append_proxy_log(f"  ✓ Working - added ({ptype.upper()})")
+                            else:
+                                self.append_proxy_log("  • Already present; skipped")
+                        else:
+                            self.append_proxy_log("  ✗ Failed")
+                    except Exception as inner_e:
+                        self.append_proxy_log(f"  ✗ Error testing: {inner_e}")
+
+                    if added_count >= count:
+                        break
+
+                self.root.after(0, lambda: self.discover_status.config(
+                    text=f"✅ Added {added_count} working proxies", bootstyle="success"))
+                self.root.after(0, self.refresh_proxy_list)
+                self.root.after(0, self.update_active_proxies_display)
+            except Exception as e:
+                self.append_proxy_log(f"❌ Discovery error: {e}")
+                self.root.after(0, lambda: self.discover_status.config(
+                    text=f"❌ Error: {str(e)[:50]}", bootstyle="danger"))
+
+        threading.Thread(target=discover_in_thread, daemon=True).start()
+
+    def show_welcome_dialog(self):
+        """Show welcome dialog as first thing - blocking modal"""
+        # Hide main window until welcome is accepted
+        self.root.withdraw()
+        
+        welcome_window = tk.Toplevel(self.root)
+        welcome_window.title("Welcome to JobGoblin - Lead Finder")
+        welcome_window.geometry("900x700")
+        welcome_window.grab_set()  # Make it modal and blocking
+        welcome_window.resizable(False, False)
+        
+        # Prevent closing until user chooses
+        welcome_window.protocol("WM_DELETE_WINDOW", lambda: None)
+        
+        # Center on screen
+        welcome_window.update_idletasks()
+        x = (welcome_window.winfo_screenwidth() // 2) - (450)
+        y = (welcome_window.winfo_screenheight() // 2) - (350)
+        welcome_window.geometry(f"900x700+{x}+{y}")
+        
+        # Title
+        title_frame = ttk_boot.Frame(welcome_window)
+        title_frame.pack(fill=X, padx=20, pady=15)
+        ttk_boot.Label(title_frame, text="🟢 Welcome to JobGoblin - Lead Finder 🟢", 
+                      font=("Arial", 18, "bold"), foreground="#00FF00").pack()
+        ttk_boot.Label(title_frame, text="Professional Job Scraping & Lead Generation Tool",
+                      font=("Arial", 12), foreground="#00DD00").pack()
+        
+        # Main content with scrolled text
+        content_frame = ttk_boot.Frame(welcome_window)
+        content_frame.pack(fill=BOTH, expand=YES, padx=20, pady=10)
+        
+        welcome_text = scrolledtext.ScrolledText(content_frame, wrap=tk.WORD, height=25, 
+                                                font=("Courier", 10), relief=tk.FLAT, bg="#1a1a1a", 
+                                                fg="#00FF00", insertbackground="#00FF00")
+        welcome_text.pack(fill=BOTH, expand=YES)
+        
+        # Bind scroll wheel and touchpad events for smooth scrolling
+        self._bind_scroll_events(welcome_text)
+        
+        welcome_content = """
+╔════════════════════════════════════════════════════════════════════╗
+║                    WELCOME TO JOBGOBLIN v2.0                      ║
+║              Professional Lead Finding & Job Scraping              ║
+╚════════════════════════════════════════════════════════════════════╝
+
+🎯 HOW THIS APP WORKS:
+
+1. JOB SCRAPER TAB
+   • Search multiple job boards and search engines simultaneously
+   • Configure keywords, locations, and desired number of results
+   • Select from free engines (DuckDuckGo) or paid APIs
+   • API-based job sites: Indeed, Greenhouse, Lever, SimplyHired
+   • Non-blocking job sites: RemoteOK, WeWorkRemotely, Remotive
+   • Results are saved to archive for future reference
+
+2. SCRAPE ARCHIVE TAB
+   • View all previous scraping results
+   • Search and filter through collected jobs
+   • Organize results by date and source
+
+3. EMAIL MANAGER TAB
+   • Extract email addresses from job results
+   • Send bulk emails to collected leads
+   • Track sent emails and delivery status
+
+4. SETTINGS & PROXIES TAB
+   • Configure API credentials (Google, Bing, SerpAPI, SendGrid, Gmail)
+   • Manage proxy connections
+   • Enable/disable proxy auto-discovery
+
+5. HELP & SUPPORT TAB
+   • Contact support and access resources
+
+
+🔗 PROXY SYSTEM - WHY IT'S IMPORTANT:
+
+Proxies are used to:
+✓ Bypass IP-based rate limiting from job sites
+✓ Prevent account blocks when scraping large amounts of data
+✓ Route requests through multiple IP addresses for reliability
+✓ Maintain continuous operation during heavy scraping sessions
+
+When proxies are enabled:
+• The app auto-discovers working proxies when results are not found
+• Failed proxies are automatically removed
+• Discovered proxies are tested before use
+• You can manually add proxies from the Settings & Proxies tab
+
+
+🚀 GETTING STARTED:
+
+1. Go to Settings & Proxies to add your API keys
+2. (Optional) Manually add proxies or use auto-discovery
+3. Configure your search in the Job Scraper tab
+4. Click "Start Scraping"
+5. Monitor progress in the status bar
+6. Extract emails from results in the Email Manager tab
+
+
+⚠️  IMPORTANT NOTES:
+
+• Always comply with website Terms of Service
+• Some sites explicitly prohibit scraping (we respect robots.txt)
+• Use delays between requests when scraping
+• Free proxies may be unreliable - consider paid options for production
+• The app respects rate limits and blocking policies
+
+
+📧 SUPPORT & CONTACT:
+
+Created by: NERDY BIRD IT
+Email: nerdybirdit@gmail.com
+WhatsApp: +1 (412) 773-4245
+Version: 2.0 - December 2025
+
+═══════════════════════════════════════════════════════════════════════
+
+Do you agree to the terms and wish to continue using JobGoblin?
+"""
+        
+        welcome_text.insert(1.0, welcome_content)
+        welcome_text.config(state=DISABLED)
+        
+        # Button frame - Accept and Decline
+        btn_frame = ttk_boot.Frame(welcome_window)
+        btn_frame.pack(fill=X, padx=20, pady=15)
+        
+        def on_accept():
+            welcome_window.destroy()
+            # Show the main app
+            self.root.deiconify()
+            self.center_main_window()
+            self.root.lift()
+        
+        def on_decline():
+            welcome_window.destroy()
+            self.root.destroy()
+        
+        ttk_boot.Button(btn_frame, text="✓ Agree", command=on_accept, 
+                       bootstyle="success", width=20).pack(side=LEFT, padx=5)
+        ttk_boot.Button(btn_frame, text="✗ Disagree", command=on_decline, 
+                       bootstyle="danger", width=20).pack(side=LEFT, padx=5)
+        
+        # Wait for welcome dialog to close before returning
+        welcome_window.wait_window()
+
+    def _bind_scroll_events_recursive(self, canvas_widget, inner_frame):
+        """Recursively bind scroll events to canvas and all child widgets"""
+        def bind_scroll(widget):
+            # Bind to this widget
+            widget.bind("<Button-4>", lambda e: self._on_scroll(canvas_widget, -3))
+            widget.bind("<Button-5>", lambda e: self._on_scroll(canvas_widget, 3))
+            widget.bind("<MouseWheel>", lambda e: self._on_scroll(canvas_widget, -1 if e.delta > 0 else 1))
+            
+            # Recursively bind all children
+            try:
+                for child in widget.winfo_children():
+                    bind_scroll(child)
+            except:
+                pass
+        
+        bind_scroll(canvas_widget)
+        bind_scroll(inner_frame)
+    
+    def _bind_scroll_events(self, widget):
+        """Bind mouse wheel and touchpad scroll events to a widget"""
+        # Linux mouse wheel
+        widget.bind("<Button-4>", lambda e: self._on_scroll(widget, -3))
+        widget.bind("<Button-5>", lambda e: self._on_scroll(widget, 3))
+        # Mousewheel on Windows/Mac
+        widget.bind("<MouseWheel>", lambda e: self._on_scroll(widget, -1 if e.delta > 0 else 1))
+        # Touchpad scroll
+        widget.bind("<Motion>", lambda e: None)  # Placeholder for trackpad detection
+
+    def _on_scroll(self, widget, delta):
+        """Handle scroll events"""
+        try:
+            widget.yview_scroll(delta, "units")
+        except:
+            pass
+        return "break"
+
+
+    def send_support_message(self):
+        """Send support email to developer"""
+        from_email = self.support_from_email.get().strip()
+        subject = self.support_subject.get().strip() or "Support Request"
+        body = self.support_message.get(1.0, tk.END).strip()
+
+        if not from_email or not body:
+            messagebox.showerror("Missing Info", "Please enter your email and a message.")
+            return
+
+        self.support_status.config(text="Sending...", bootstyle="info")
+        self.root.update_idletasks()
+
+        # Recipient fixed
+        to_email = "nerdybirdit@gmail.com"
+
+        # Try SendGrid first
+        sg_key = os.getenv("SENDGRID_API_KEY")
+        sent = False
+        error_msg = ""
+        if sg_key:
+            try:
+                import sendgrid
+                from sendgrid.helpers.mail import Mail
+                sg = sendgrid.SendGridAPIClient(api_key=sg_key)
+                mail = Mail(
+                    from_email=from_email,
+                    to_emails=to_email,
+                    subject=subject,
+                    plain_text_content=body,
+                )
+                resp = sg.send(mail)
+                if resp.status_code < 300:
+                    sent = True
+            except Exception as e:
+                error_msg = f"SendGrid error: {e}"
+
+        # Fallback to SMTP
+        if not sent:
+            host = os.getenv("SMTP_HOST", "")
+            port = int(os.getenv("SMTP_PORT", "587") or 587)
+            user = os.getenv("SMTP_USER", "")
+            pwd = os.getenv("SMTP_PASSWORD", "")
+            if host and user and pwd:
+                try:
+                    msg = MIMEText(body)
+                    msg["Subject"] = subject
+                    msg["From"] = from_email
+                    msg["To"] = to_email
+                    ctx = ssl.create_default_context()
+                    with smtplib.SMTP(host, port, timeout=20) as server:
+                        server.starttls(context=ctx)
+                        server.login(user, pwd)
+                        server.sendmail(from_email, [to_email], msg.as_string())
+                    sent = True
+                except Exception as e:
+                    error_msg = f"SMTP error: {e}"
+            else:
+                error_msg = "No SendGrid or SMTP credentials configured."
+
+        if sent:
+            self.support_status.config(text="Sent!", bootstyle="success")
+            messagebox.showinfo("Sent", "Your message was sent to support.")
+            self.support_message.delete(1.0, tk.END)
+        else:
+            self.support_status.config(text="Failed", bootstyle="danger")
+            messagebox.showerror("Send Failed", error_msg or "Could not send message.")
+
+    def load_env_settings(self):
+        """Load .env values into the settings form"""
+        env_path = ".env"
+        if not os.path.exists(env_path):
+            return
+        try:
+            data = {}
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    data[k.strip()] = v.strip()
+            for key, entry in self.env_entries.items():
+                if key in data:
+                    entry.delete(0, tk.END)
+                    entry.insert(0, data[key])
+        except Exception as e:
+            messagebox.showwarning("Env Load", f"Could not load .env: {e}")
+
+    def save_env_settings(self):
+        """Persist API/email credentials to .env"""
+        env_path = ".env"
+        env_data = {}
+
+        # Load existing values
+        if os.path.exists(env_path):
+            try:
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        k, v = line.split("=", 1)
+                        env_data[k.strip()] = v.strip()
+            except Exception:
+                pass
+
+        # Update with form values
+        for key, entry in self.env_entries.items():
+            val = entry.get().strip()
+            if val:
+                env_data[key] = val
+            elif key in env_data:
+                # Remove empty fields from file
+                env_data.pop(key, None)
+
+        # Write back
+        try:
+            with open(env_path, "w", encoding="utf-8") as f:
+                f.write("# Auto-generated by GUI settings\n")
+                for k, v in env_data.items():
+                    f.write(f"{k}={v}\n")
+            messagebox.showinfo("Saved", ".env updated successfully")
+        except Exception as e:
+            messagebox.showerror("Save Error", f"Could not write .env: {e}")
+    
+    def reload_env_to_os(self):
+        """Reload .env file settings into os.environ"""
+        env_path = ".env"
+        if not os.path.exists(env_path):
+            return
+        
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    os.environ[k.strip()] = v.strip()
+        except Exception as e:
+            print(f"[reload_env] Error reloading .env: {e}")
+    
+    def select_all_engines(self):
+        """Select all search engines"""
+        print(f"[DEBUG] select_all_engines - engine_vars has {len(self.engine_vars)} engines; settings_engine_vars has {len(self.settings_engine_vars)}")
+        for engine_name, var in self.engine_vars.items():
+            var.set(True)
+            print(f"[DEBUG] Enabled {engine_name}")
+        for engine_name, var in self.settings_engine_vars.items():
+            var.set(True)
+        print("[DEBUG] All engines enabled (main + settings)")
+    
+    def deselect_all_engines(self):
+        """Deselect all search engines"""
+        print(f"[DEBUG] deselect_all_engines - engine_vars has {len(self.engine_vars)} engines; settings_engine_vars has {len(self.settings_engine_vars)}")
+        for engine_name, var in self.engine_vars.items():
+            var.set(False)
+            print(f"[DEBUG] Disabled {engine_name}")
+        for engine_name, var in self.settings_engine_vars.items():
+            var.set(False)
+        print("[DEBUG] All engines disabled (main + settings)")
+    
+    def browse_output_dir(self):
+        """Browse for output directory"""
+        directory = filedialog.askdirectory()
+        if directory:
+            self.output_dir.delete(0, tk.END)
+            self.output_dir.insert(0, directory)
+    
+    def start_scraping(self):
+        """Start the scraping process in a background thread"""
+        
+        # Validate inputs
+        keywords = self.keywords_entry.get().strip()
+        if not keywords:
+            messagebox.showerror("Error", "Please enter at least one keyword")
+            return
+        
+        # Get selected engines
+        selected_engines = [engine for engine, var in self.engine_vars.items() if var.get()]
+        if not selected_engines:
+            messagebox.showerror("Error", "Please select at least one search engine")
+            return
+        
+        # Update UI state
+        self.scraping = True
+        self.stopped_by_user = False
+        self.start_btn.config(state=DISABLED)
+        self.stop_btn.config(state=NORMAL)
+        self.progress_bar.start()
+        self.status_label.config(text="🔍 Scraping in progress...")
+        self.clear_results()
+        
+        # Start scraping in background thread
+        thread = threading.Thread(target=self.run_scraper, daemon=True)
+        thread.start()
+    
+    def run_scraper(self):
+        """Run the actual scraping process"""
+        start_time = time.time()
+        
+        try:
+            # Get parameters
+            keywords = [k.strip() for k in self.keywords_entry.get().split(',') if k.strip()]
+            locations = [l.strip() for l in self.locations_entry.get().split(',') if l.strip()]
+            engines = [engine for engine, var in self.engine_vars.items() if var.get()]
+            try:
+                max_total_results = int(self.max_results_var.get())
+                if max_total_results <= 0:
+                    max_total_results = 50
+            except:
+                max_total_results = 50
+            max_per_query = min(50, max_total_results)  # Query limit per engine call
+            extract_emails = self.extract_emails_var.get()
+            send_emails = self.send_emails_var.get()
+            hit_limit = False
+            
+            self.results = []
+            
+            # Expand queries
+            queries = []
+            for kw in keywords:
+                if locations:
+                    for loc in locations:
+                        queries.append(f"{kw} {loc}")
+                else:
+                    queries.append(kw)
+            
+            self.update_status(f"Running {len(queries)} queries across {len(engines)} engines...")
+            
+            # Initialize API engines if available
+            api_engines = {}
+            try:
+                api_engines = get_api_engines(verbose=False)
+                if api_engines:
+                    self.update_status(f"✓ {len(api_engines)} API engine(s) enabled")
+            except Exception as e:
+                if False:  # verbose
+                    print(f"[API] Could not initialize API engines: {e}")
+            
+            # Web engines
+            WEB_ENGINES = {"duckduckgo", "google_cse", "bing", "serpapi", "linkedin", "glassdoor", "ziprecruiter"}
+            SITE_ENGINES = {"indeed", "greenhouse", "lever", "simplyhired"}
+            API_ENGINES = {"linkedin_api", "indeed_api", "glassdoor_api", "job_aggregator_api", "remote_jobs_api"}
+            
+            # Run web engines
+            for idx, query in enumerate(queries, 1):
+                if not self.scraping or hit_limit:
+                    break
+                    
+                for eng in engines:
+                    if not self.scraping or hit_limit:
+                        break
+                    
+                    # Try API version first if available (faster, more reliable)
+                    api_key = f"{eng}_api"
+                    if api_key in api_engines and eng in ["linkedin", "indeed", "glassdoor"]:
+                        try:
+                            self.update_status(f"🚀 Using {eng.upper()} API for: {query}")
+                            kw = query.split()[0] if ' ' in query else query
+                            loc = ' '.join(query.split()[1:]) if ' ' in query else ""
+                            api_results = api_engines[api_key].search(kw, loc, max_results=max_per_query, verbose=False)
+                            
+                            if api_results:
+                                filtered = [normalize_record(r) for r in api_results if is_relevant(r.get("title", ""), r.get("snippet", ""), keywords, 0.5)]
+                                self.results.extend(filtered)
+                                # Trim if we exceeded the limit
+                                if len(self.results) > max_total_results:
+                                    self.results = self.results[:max_total_results]
+                                self.update_stats(len(self.results), 0, int(time.time() - start_time))
+                                self.update_status(f"✓ API found {len(filtered)} relevant results from {eng} (total: {len(self.results)}/{max_total_results})")
+                                if len(self.results) >= max_total_results:
+                                    self.update_status(f"🎯 Reached max results limit ({max_total_results}). Stopping scrape.")
+                                    hit_limit = True
+                                    break
+                                time.sleep(0.5)  # API rate limiting
+                                continue  # Skip scraping for this engine
+                        except Exception as e:
+                            self.update_status(f"⚠️ API failed for {eng}, falling back to scraping: {e}")
+                    
+                    # Regular scraping (fallback or no API)
+                    if eng in WEB_ENGINES:
+                        # Try with retry logic for proxy failures
+                        results = self._search_with_retry(eng, query, max_per_query, keywords)
+                        
+                        if results:
+                            filtered = [normalize_record(r) for r in results if is_relevant(r.get("title", ""), r.get("snippet", ""), keywords, 0.5)]
+                            self.results.extend(filtered)
+                            # Trim if we exceeded the limit
+                            if len(self.results) > max_total_results:
+                                self.results = self.results[:max_total_results]
+                            self.update_stats(len(self.results), 0, int(time.time() - start_time))
+                            if len(self.results) >= max_total_results:
+                                self.update_status(f"🎯 Reached max results limit ({max_total_results}). Stopping scrape.")
+                                hit_limit = True
+                                break
+                        
+                        time.sleep(1.2)  # Throttle
+            
+            # Run site engines
+            for eng in engines:
+                if not self.scraping or hit_limit:
+                    break
+                    
+                if eng in SITE_ENGINES:
+                    for kw in keywords:
+                        if not self.scraping or hit_limit:
+                            break
+                            
+                        locs = locations if locations else [""]
+                        for loc in locs:
+                            if not self.scraping or hit_limit:
+                                break
+                                
+                            self.update_status(f"[site] {eng} kw='{kw}' loc='{loc}'")
+                            
+                            if eng == "indeed":
+                                results = indeed_search(kw, loc, max_results=max_per_query, verbose=False)
+                            elif eng == "greenhouse":
+                                results = greenhouse_search(kw, loc, max_results=max_per_query, verbose=False)
+                            elif eng == "lever":
+                                results = lever_search(kw, loc, max_results=max_per_query, verbose=False)
+                            elif eng == "simplyhired":
+                                results = simplyhired_search(kw, loc, max_results=max_per_query, verbose=False)
+                            else:
+                                results = []
+                            
+                            filtered = [normalize_record(r) for r in results if is_relevant(r.get("title", ""), r.get("snippet", ""), keywords, 0.5)]
+                            self.results.extend(filtered)
+                            # Trim if we exceeded the limit
+                            if len(self.results) > max_total_results:
+                                self.results = self.results[:max_total_results]
+                            self.update_stats(len(self.results), 0, int(time.time() - start_time))
+                            if len(self.results) >= max_total_results:
+                                self.update_status(f"🎯 Reached max results limit ({max_total_results}). Stopping scrape.")
+                                hit_limit = True
+                                break
+                            
+                            time.sleep(1.2)
+            
+            # Dedupe
+            seen = set()
+            unique_results = []
+            for r in self.results:
+                url = r.get('url')
+                if url and url not in seen:
+                    seen.add(url)
+                    unique_results.append(r)
+            self.results = unique_results[:max_total_results]
+
+            if hit_limit:
+                self.update_status(f"⛔ Max results reached ({len(self.results)}/{max_total_results}). Finishing up...")
+            
+            # Enrich jobs with emails and company info
+            enrich_jobs = self.enrich_jobs_var.get()
+            if enrich_jobs and self.results and self.scraping:
+                self.update_status(f"🔍 Enriching {len(self.results)} jobs with emails & company data...")
+                enricher = JobEnrichment(verbose=False)
+                enriched = enricher.enrich_jobs(self.results)
+                enriched = sort_by_enrichment(enriched, reverse=True)
+                
+                avg_score = sum(j.get("enrichment_score", 0) for j in enriched) / len(enriched) if enriched else 0
+                self.update_status(f"✅ Enrichment complete. Avg score: {avg_score:.1f}/12.0")
+                
+                self.results = enriched
+            
+            # Extract emails
+            if extract_emails and self.scraping:
+                self.update_status(f"📧 Extracting emails from {len(self.results)} job postings...")
+                company_emails = extract_from_job_results(self.results, verbose=True)  # Enable verbose to see what's happening
+                self.extracted_emails = filter_and_dedupe_emails(company_emails)
+                self.update_stats(len(self.results), len(self.extracted_emails), int(time.time() - start_time))
+                self.update_status(f"✅ Found {len(self.extracted_emails)} unique emails from {len(company_emails)} total extractions")
+                
+                # Save emails to CSV
+                if self.extracted_emails:
+                    email_mgr = EmailManager("output", verbose=False)
+                    email_mgr.export_emails_to_csv(self.extracted_emails, "output/found_emails.csv")
+                    self.update_status(f"💾 Saved {len(self.extracted_emails)} emails to output/found_emails.csv")
+                else:
+                    self.update_status("⚠️ No emails found in job postings")
+            
+            # Display results
+            self.display_results()
+            
+            # Save to archive
+            self.save_to_archive(keywords, locations, engines, len(self.results), len(self.extracted_emails))
+            
+            # Save outputs
+            self.auto_save_results()
+            
+            # Send emails if requested
+            if send_emails and self.extracted_emails and self.scraping:
+                self.update_status("📧 Sending emails...")
+                sender = EmailSender(verbose=False)
+                stats = sender.send_emails_from_csv("output/found_emails.csv", limit_per_run=50)
+                messagebox.showinfo("Email Sending", f"Sent: {stats['sent']}\nFailed: {stats['failed']}\nSkipped: {stats['skipped']}")
+            
+            # Update final status based on how scraping ended
+            if self.stopped_by_user:
+                self.update_status(f"⛔ Scraping stopped by user. Found {len(self.results)} jobs, {len(self.extracted_emails)} emails.")
+            else:
+                self.update_status("✅ Scraping completed successfully!")
+            
+        except Exception as e:
+            self.update_status(f"❌ Error: {str(e)}")
+            messagebox.showerror("Scraping Error", f"An error occurred:\n{str(e)}")
+        
+        finally:
+            self.root.after(0, self.scraping_finished)
+    
+    def stop_scraping(self):
+        """Stop the scraping process"""
+        self.scraping = False
+        self.stopped_by_user = True
+        self.update_status("⛔ Stopping scrape...")
+    
+    def _search_with_retry(self, engine, query, max_results, keywords, max_retries=3):
+        """Search with automatic proxy rotation and retry on timeout"""
+        if engine in ("linkedin", "glassdoor", "ziprecruiter"):
+            # Handle site-filtered engines
+            site_map = {
+                "linkedin": "site:linkedin.com/jobs ",
+                "glassdoor": "site:glassdoor.com/Job ",
+                "ziprecruiter": "site:ziprecruiter.com/jobs "
+            }
+            if "serpapi" in ENGINE_FUNCS:
+                fn = ENGINE_FUNCS["serpapi"]
+                modified_query = site_map[engine] + query
+                query_to_use = modified_query
+            else:
+                self.update_status(f"⚠️ {engine} requires SerpAPI key (not configured)")
+                return []
+        else:
+            fn = ENGINE_FUNCS.get(engine)
+            if not fn:
+                self.update_status(f"❌ Engine '{engine}' not available")
+                return []
+            query_to_use = query
+        
+        # Try with retries
+        for attempt in range(max_retries + 1):
+            if not self.scraping:
+                return []
+            
+            try:
+                self.update_status(f"[Attempt {attempt+1}/{max_retries+1}] Querying {engine}: {query}")
+                
+                # Call the search function
+                if engine in ("linkedin", "glassdoor", "ziprecruiter"):
+                    results = fn(query_to_use, max_results=max_results, verbose=False)
+                else:
+                    results = fn(query_to_use, max_results=max_results, verbose=False)
+                
+                # Success!
+                if results:
+                    self.update_status(f"✓ Found {len(results)} results from {engine}")
+                    return results
+                else:
+                    self.update_status(f"⚠️ No results from {engine} for: {query}")
+                    # Try one more time with a different proxy
+                    if attempt < max_retries:
+                        self.update_status(f"🔄 Retrying {engine} with different proxy...")
+                        # Mark current proxy as failed and get next one
+                        if self.proxy_manager:
+                            try:
+                                proxies = self.proxy_manager.get_all_proxies()
+                                if proxies:
+                                    current = self.proxy_manager.get_next_proxy()
+                                    if current:
+                                        self.proxy_manager.mark_proxy_failed(current.get('url'))
+                            except:
+                                pass
+                        time.sleep(2)
+                        continue
+                    return []
+            
+            except Exception as e:
+                error_msg = str(e).lower()
+                
+                # Check if it's a timeout/proxy error
+                if any(x in error_msg for x in ['timeout', 'connection', 'proxy', 'reset', 'refused', 'read', 'timed out']):
+                    if attempt < max_retries:
+                        self.update_status(f"⚠️ {engine} proxy timeout - Finding new proxy (attempt {attempt+1}/{max_retries+1})...")
+                        
+                        # Mark current proxy as failed
+                        if self.proxy_manager:
+                            try:
+                                current = self.proxy_manager.get_next_proxy()
+                                if current:
+                                    self.proxy_manager.mark_proxy_failed(current.get('url'))
+                                    self.update_status(f"❌ Marked proxy as failed: {current.get('url')}")
+                            except:
+                                pass
+                        
+                        # Try to find new proxies
+                        self._auto_discover_proxies_quietly()
+                        
+                        time.sleep(2)
+                        continue
+                    else:
+                        self.update_status(f"❌ {engine} failed after {max_retries+1} attempts: {str(e)[:50]}")
+                        return []
+                else:
+                    # Other errors - don't retry
+                    self.update_status(f"❌ Error querying {engine}: {str(e)[:80]}")
+                    print(f"[{engine}] Error: {e}", file=sys.stderr)
+                    return []
+        
+        return []
+    
+    def _auto_discover_proxies_quietly(self):
+        """Auto-discover proxies in background without showing UI popups"""
+        try:
+            added = 0
+            
+            # First try ProxyFetcher (uses GitHub ProxyList - always fresh!)
+            try:
+                from proxy_fetcher import ProxyFetcher
+                fetcher = ProxyFetcher()
+                self.update_status("🔄 Fetching fresh proxies from ProxyList...")
+                
+                # Get a mix of HTTP and SOCKS5 proxies
+                mixed_proxies = fetcher.get_mixed_proxies(limit=5, force_refresh=True)
+                
+                for proxy_info in mixed_proxies:
+                    if self.proxy_manager.add_proxy(proxy_info["url"], proxy_type=proxy_info["type"]):
+                        added += 1
+                
+                if added > 0:
+                    self.update_status(f"✓ Added {added} fresh proxy(ies) from ProxyList (GitHub)")
+                    self.update_active_proxies_display()
+                    return
+            except Exception as e:
+                self.update_status(f"⚠️ ProxyList fetch failed, trying alternative method...")
+                print(f"ProxyFetcher error: {e}", file=sys.stderr)
+            
+            # Fallback to ProxyFinder
+            if self.proxy_finder:
+                proxies = self.proxy_finder.find_and_validate(limit=3, verbose=False)
+                for proxy_url in proxies:
+                    if proxy_url.startswith("socks5://"):
+                        ptype = "socks5"
+                    elif proxy_url.startswith("socks4://"):
+                        ptype = "socks4"
+                    else:
+                        ptype = "http"
+                    
+                    if self.proxy_manager.add_proxy(proxy_url, proxy_type=ptype):
+                        added += 1
+            
+            if added > 0:
+                self.update_status(f"✓ Found and added {added} new proxy(ies)")
+                self.update_active_proxies_display()
+        except Exception as e:
+            if "proxy" not in str(e).lower():
+                print(f"Error auto-discovering proxies: {e}", file=sys.stderr)
+
+    def scraping_finished(self):
+        """Called when scraping is finished"""
+        self.scraping = False
+        self.start_btn.config(state=NORMAL)
+        self.stop_btn.config(state=DISABLED)
+        self.progress_bar.stop()
+    
+    def update_status(self, message):
+        """Update status label (thread-safe)"""
+        self.root.after(0, lambda: self.status_label.config(text=message))
+    
+    def update_stats(self, jobs, emails, elapsed):
+        """Update statistics display (thread-safe)"""
+        self.root.after(0, lambda: self.stats_jobs.config(text=f"Jobs Found: {jobs}"))
+        self.root.after(0, lambda: self.stats_emails.config(text=f"Emails Found: {emails}"))
+        self.root.after(0, lambda: self.stats_time.config(text=f"Time: {elapsed}s"))
+    
+    def display_results(self):
+        """Display scraping results in the text area"""
+        self.root.after(0, self._display_results_ui)
+    
+    def _display_results_ui(self):
+        """Update UI with results (must run in main thread)"""
+        self.results_text.delete(1.0, tk.END)
+        
+        if not self.results:
+            self.results_text.insert(tk.END, "No results found.\n")
+            return
+        
+        for idx, result in enumerate(self.results, 1):
+            self.results_text.insert(tk.END, f"\n{'='*80}\n")
+            self.results_text.insert(tk.END, f"[{idx}] ")
+            self.results_text.insert(tk.END, f"{result.get('title', 'No Title')}\n", "title")
+            url_val = result.get('url', 'N/A')
+            self.results_text.insert(tk.END, "🔗 URL: ")
+            start = self.results_text.index(tk.INSERT)
+            self.results_text.insert(tk.END, f"{url_val}\n", "url")
+            end = self.results_text.index(tk.INSERT)
+            tag_name = f"url_{idx}"
+            self.results_text.tag_add(tag_name, start, end)
+            self.results_text.tag_config(tag_name, foreground="#66b3ff", underline=True)
+            self.results_text.tag_bind(tag_name, "<Enter>", lambda e: self.results_text.config(cursor="hand2"))
+            self.results_text.tag_bind(tag_name, "<Leave>", lambda e: self.results_text.config(cursor=""))
+            self.results_text.tag_bind(tag_name, "<Button-1>", lambda e, u=url_val: webbrowser.open(u))
+            self.results_text.insert(tk.END, f"🔍 Engine: {result.get('engine', 'N/A')}\n", "engine")
+            if result.get('snippet'):
+                self.results_text.insert(tk.END, f"📝 {result['snippet'][:200]}...\n")
+        
+        if self.extracted_emails:
+            self.results_text.insert(tk.END, f"\n\n{'='*80}\n")
+            self.results_text.insert(tk.END, "📧 EXTRACTED EMAILS\n", "email")
+            self.results_text.insert(tk.END, f"{'='*80}\n")
+            
+            for idx, (email, info) in enumerate(self.extracted_emails.items(), 1):
+                domains = ', '.join(list(info.get('domains', []))[:3])
+                self.results_text.insert(tk.END, f"\n[{idx}] ", "email")
+                self.results_text.insert(tk.END, f"{email}\n", "email")
+                self.results_text.insert(tk.END, f"    Domains: {domains}\n")
+                self.results_text.insert(tk.END, f"    Sources: {len(info.get('sources', []))}\n")
+    
+    def clear_results(self):
+        """Clear results display"""
+        self.results_text.delete(1.0, tk.END)
+        self.results = []
+        self.extracted_emails = {}
+        self.update_stats(0, 0, 0)
+    
+    def save_results(self):
+        """Save results to files"""
+        if not self.results:
+            messagebox.showinfo("Save Results", "No results to save")
+            return
+        
+        try:
+            self.auto_save_results()
+            messagebox.showinfo("Save Results", f"Saved {len(self.results)} jobs to:\n\n- output/web_jobs_ultimate.json\n- output/web_jobs_ultimate.txt\n- output/found_emails.csv")
+        except Exception as e:
+            messagebox.showerror("Save Error", f"Failed to save results:\n{str(e)}")
+    
+    def auto_save_results(self):
+        """Automatically save results with timestamped files"""
+        os.makedirs("output", exist_ok=True)
+        
+        # Create timestamped filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Save JSON
+        with open("output/web_jobs_ultimate.json", 'w', encoding='utf-8') as f:
+            json.dump(self.results, f, indent=2)
+        
+        # Save TXT (main file)
+        lines = []
+        for r in self.results:
+            lines.append(f"{r.get('title','')} | {r.get('url','')} | {r.get('engine','')}")
+        
+        with open("output/web_jobs_ultimate.txt", 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines))
+        
+        # Save timestamped TXT file for this scrape (organized by date/time)
+        timestamped_filename = f"output/scrape_{timestamp}.txt"
+        with open(timestamped_filename, 'w', encoding='utf-8') as f:
+            f.write(f"JobGoblin - Scraped Results\n")
+            f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Total Jobs: {len(self.results)}\n")
+            f.write(f"Total Emails: {len(self.extracted_emails)}\n")
+            f.write("="*80 + "\n\n")
+            
+            for idx, job in enumerate(self.results, 1):
+                f.write(f"[{idx}] {job.get('title', 'No Title')}\n")
+                f.write(f"URL: {job.get('url', 'N/A')}\n")
+                f.write(f"Engine: {job.get('engine', 'N/A')}\n")
+                if job.get('snippet'):
+                    f.write(f"Description: {job['snippet']}\n")
+                f.write("\n" + "-"*80 + "\n\n")
+            
+            # Add emails section if extracted
+            if self.extracted_emails:
+                f.write("\n" + "="*80 + "\n")
+                f.write("EXTRACTED EMAILS\n")
+                f.write("="*80 + "\n\n")
+                for idx, (email, info) in enumerate(self.extracted_emails.items(), 1):
+                    domains = ', '.join(list(info.get('domains', []))[:3])
+                    f.write(f"[{idx}] {email}\n")
+                    f.write(f"    Domains: {domains}\n")
+                    f.write(f"    Sources: {len(info.get('sources', []))}\n\n")
+        
+        self.update_status(f"✅ Saved timestamped results to: {timestamped_filename}")
+    
+    def export_jobs_to_txt(self):
+        """Export scraped jobs to a custom TXT file"""
+        if not self.results:
+            messagebox.showwarning("No Results", "No jobs to export. Please run a scrape first.")
+            return
+        
+        # Ask user for filename
+        filename = filedialog.asksaveasfilename(
+            title="Save Jobs As",
+            defaultextension=".txt",
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+            initialfile=f"job_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            with open(filename, 'w', encoding='utf-8') as f:
+                f.write(f"JobGoblin - Scraped Job Results\n")
+                f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Total Jobs: {len(self.results)}\n")
+                f.write("="*80 + "\n\n")
+                
+                for idx, job in enumerate(self.results, 1):
+                    f.write(f"[{idx}] {job.get('title', 'No Title')}\n")
+                    f.write(f"URL: {job.get('url', 'N/A')}\n")
+                    f.write(f"Engine: {job.get('engine', 'N/A')}\n")
+                    if job.get('snippet'):
+                        f.write(f"Description: {job['snippet']}\n")
+                    f.write("\n" + "-"*80 + "\n\n")
+            
+            messagebox.showinfo("Export Successful", f"Exported {len(self.results)} jobs to:\n{filename}")
+        
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export jobs:\n{str(e)}")
+    
+    def email_jobs_to_user(self):
+        """Email scraped jobs to a user-specified email address"""
+        if not self.results:
+            messagebox.showwarning("No Results", "No jobs to email. Please run a scrape first.")
+            return
+        
+        # Create dialog for email input
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Email Job Results")
+        # Make dialog resizable and ensure enough space for buttons
+        dialog.resizable(True, True)
+        dialog.minsize(500, 300)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Center dialog
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (500 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (300 // 2)
+        dialog.geometry(f"500x300+{x}+{y}")
+        
+        ttk_boot.Label(dialog, text="📧 Send Job Results via Email", font=("Helvetica", 12, "bold")).pack(pady=10)
+        
+        # Recipient email
+        ttk_boot.Label(dialog, text="Recipient Email:").pack(anchor=W, padx=20, pady=(10, 0))
+        recipient_entry = ttk_boot.Entry(dialog, width=50)
+        recipient_entry.pack(padx=20, pady=5)
+        
+        # Subject
+        ttk_boot.Label(dialog, text="Subject:").pack(anchor=W, padx=20, pady=(10, 0))
+        subject_entry = ttk_boot.Entry(dialog, width=50)
+        subject_entry.insert(0, f"JobGoblin Results - {len(self.results)} Jobs Found")
+        subject_entry.pack(padx=20, pady=5)
+        
+        def send_email():
+            recipient = recipient_entry.get().strip()
+            subject = subject_entry.get().strip()
+            
+            if not recipient:
+                dialog.destroy()
+                messagebox.showerror("Error", "Please enter a recipient email address")
+                return
+            
+            # Validate email format (basic)
+            if '@' not in recipient or '.' not in recipient.split('@')[1]:
+                dialog.destroy()
+                messagebox.showerror("Error", "Please enter a valid email address")
+                return
+            
+                # Reload .env to get latest SMTP settings
+            self.reload_env_to_os()
+            
+            # Create email body
+            body = f"""JobGoblin - Scraped Job Results
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Total Jobs: {len(self.results)}
+
+{'='*80}\n\n"""
+            
+            for idx, job in enumerate(self.results, 1):
+                body += f"[{idx}] {job.get('title', 'No Title')}\n"
+                body += f"URL: {job.get('url', 'N/A')}\n"
+                body += f"Engine: {job.get('engine', 'N/A')}\n"
+                if job.get('snippet'):
+                    body += f"Description: {job['snippet'][:200]}...\n"
+                body += "\n" + "-"*80 + "\n\n"
+            
+            # Close dialog first, then show results
+            dialog.destroy()
+            
+            # Use EmailSender for SMTP-only sending
+            try:
+                from email_sender import EmailSender
+                sender = EmailSender()
+                success = sender.send_email(recipient, subject, body)
+                if success:
+                    messagebox.showinfo("Email Sent", f"Job results sent successfully to {recipient}!")
+                else:
+                    messagebox.showerror("Email Error", 
+                        "Email credentials not configured.\n\n"
+                        "Please set up SMTP credentials in Settings tab.")
+            except Exception as e:
+                messagebox.showerror("Email Error", f"Failed to send email:\n{str(e)}")
+        
+        # Buttons
+        btn_frame = ttk_boot.Frame(dialog)
+        # Anchor buttons at the bottom and stretch horizontally
+        btn_frame.pack(side=BOTTOM, fill=X, padx=20, pady=15)
+        
+        send_btn = ttk_boot.Button(btn_frame, text="Send Email", command=send_email, bootstyle="success", width=15)
+        send_btn.pack(side=LEFT, padx=10, pady=5)
+        
+        cancel_btn = ttk_boot.Button(btn_frame, text="Cancel", command=dialog.destroy, bootstyle="danger", width=15)
+        cancel_btn.pack(side=LEFT, padx=10, pady=5)
+    
+    def load_archive(self):
+        """Load scrape archive from file"""
+        if os.path.exists(self.archive_file):
+            try:
+                with open(self.archive_file, 'r', encoding='utf-8') as f:
+                    self.archive_data = json.load(f)
+            except:
+                self.archive_data = []
+        else:
+            self.archive_data = []
+        
+        self.refresh_archive_display()
+        self.refresh_archive_dropdown()
+    
+    def save_to_archive(self, keywords, locations, engines, jobs_count, emails_count):
+        """Save current scrape to archive"""
+        # Convert sets to lists for JSON serialization
+        serializable_emails = {}
+        for email, info in self.extracted_emails.items():
+            serializable_emails[email] = {
+                'email': email,
+                'domains': list(info.get('domains', [])),  # Convert set to list
+                'sources': list(info.get('sources', [])),
+                'job_titles': list(info.get('job_titles', []))  # Convert set to list
+            }
+        
+        entry = {
+            'id': len(self.archive_data) + 1,
+            'timestamp': datetime.now().isoformat(),
+            'keywords': keywords,
+            'locations': locations,
+            'engines': engines,
+            'jobs_found': jobs_count,
+            'emails_found': emails_count,
+            'results': self.results[:100],
+            'extracted_emails': serializable_emails,
+            'all_results': self.results
+        }
+        
+        self.archive_data.append(entry)
+        
+        # Save to file
+        with open(self.archive_file, 'w', encoding='utf-8') as f:
+            json.dump(self.archive_data, f, indent=2)
+        
+        self.refresh_archive_display()
+        self.refresh_archive_dropdown()
+    
+    def refresh_archive_display(self):
+        """Refresh the archive treeview"""
+        # Clear existing items
+        for item in self.archive_tree.get_children():
+            self.archive_tree.delete(item)
+        
+        # Add archive entries
+        for entry in reversed(self.archive_data):  # Most recent first
+            self.archive_tree.insert(
+                "",
+                tk.END,
+                text=entry['id'],
+                values=(
+                    datetime.fromisoformat(entry['timestamp']).strftime("%Y-%m-%d %H:%M:%S"),
+                    ', '.join(entry.get('keywords', [])),
+                    ', '.join(entry.get('locations', []))[:50],
+                    ', '.join(entry.get('engines', []))[:50],
+                    entry.get('jobs_found', 0),
+                    entry.get('emails_found', 0)
+                )
+            )
+    
+    def filter_archive(self):
+        """Filter archive based on search term"""
+        search_term = self.archive_search.get().lower()
+        
+        # Clear existing items
+        for item in self.archive_tree.get_children():
+            self.archive_tree.delete(item)
+        
+        # Add filtered entries
+        for entry in reversed(self.archive_data):
+            # Search in keywords, locations, and engines
+            searchable = ' '.join(entry.get('keywords', []) + entry.get('locations', []) + entry.get('engines', [])).lower()
+            
+            if search_term in searchable or not search_term:
+                self.archive_tree.insert(
+                    "",
+                    tk.END,
+                    text=entry['id'],
+                    values=(
+                        datetime.fromisoformat(entry['timestamp']).strftime("%Y-%m-%d %H:%M:%S"),
+                        ', '.join(entry.get('keywords', [])),
+                        ', '.join(entry.get('locations', []))[:50],
+                        ', '.join(entry.get('engines', []))[:50],
+                        entry.get('jobs_found', 0),
+                        entry.get('emails_found', 0)
+                    )
+                )
+    
+    def view_archive_details(self, event):
+        """View details of selected archive entry"""
+        selection = self.archive_tree.selection()
+        if not selection:
+            return
+        
+        item = self.archive_tree.item(selection[0])
+        entry_id = int(item['text'])
+        
+        # Find entry in archive
+        entry = next((e for e in self.archive_data if e['id'] == entry_id), None)
+        if not entry:
+            return
+        
+        # Store current archive entry for email manager to use
+        self.current_archive_entry = entry
+        self.current_archive_id = entry_id
+        
+        # Display details
+        self.archive_details.delete(1.0, tk.END)
+        
+        details = f"""
+{'='*80}
+SCRAPE DETAILS - ID: {entry['id']}
+{'='*80}
+
+Date & Time: {datetime.fromisoformat(entry['timestamp']).strftime("%Y-%m-%d %H:%M:%S")}
+Keywords: {', '.join(entry.get('keywords', []))}
+Locations: {', '.join(entry.get('locations', []))}
+Engines: {', '.join(entry.get('engines', []))}
+Jobs Found: {entry.get('jobs_found', 0)}
+Emails Found: {entry.get('emails_found', 0)}
+
+{'='*80}
+ALL JOB LINKS & TITLES:
+{'='*80}
+
+"""
+        self.archive_details.insert(tk.END, details)
+        
+        # Build URL-to-emails mapping
+        extracted_emails = entry.get('extracted_emails', {})
+        url_to_emails = {}
+        for email, info in extracted_emails.items():
+            for source_url in info.get('sources', []):
+                if source_url not in url_to_emails:
+                    url_to_emails[source_url] = []
+                url_to_emails[source_url].append(email)
+        
+        # Show all results with links and titles
+        all_results = entry.get('all_results', entry.get('results', []))
+        for idx, result in enumerate(all_results, 1):
+            result_text = f"[{idx}] {result.get('title', 'No Title')}\n    🔗 "
+            self.archive_details.insert(tk.END, result_text)
+            url_val = result.get('url', 'N/A')
+            start = self.archive_details.index(tk.INSERT)
+            self.archive_details.insert(tk.END, f"{url_val}\n", "url")
+            end = self.archive_details.index(tk.INSERT)
+            tag_name = f"arch_url_{entry['id']}_{idx}"
+            self.archive_details.tag_add(tag_name, start, end)
+            self.archive_details.tag_config(tag_name, foreground="#66b3ff", underline=True)
+            self.archive_details.tag_bind(tag_name, "<Enter>", lambda e: self.archive_details.config(cursor="hand2"))
+            self.archive_details.tag_bind(tag_name, "<Leave>", lambda e: self.archive_details.config(cursor=""))
+            self.archive_details.tag_bind(tag_name, "<Button-1>", lambda e, u=url_val: webbrowser.open(u))
+            self.archive_details.insert(tk.END, f"    Engine: {result.get('engine', 'N/A')}\n")
+            
+            # Add emails found from this URL
+            if url_val in url_to_emails:
+                emails_list = url_to_emails[url_val]
+                self.archive_details.insert(tk.END, f"    📧 Emails: {', '.join(emails_list)}\n")
+            
+            self.archive_details.insert(tk.END, "\n")
+        
+        # Add summary of all unique emails at the end
+        if entry.get('emails_found', 0) > 0 and extracted_emails:
+            self.archive_details.insert(tk.END, f"\n{'='*80}\nALL UNIQUE EMAILS ({len(extracted_emails)}):\n{'='*80}\n\n")
+            
+            for idx, (email, info) in enumerate(list(extracted_emails.items()), 1):
+                domains = ', '.join(list(info.get('domains', []))[:3])
+                num_sources = len(info.get('sources', []))
+                email_text = f"[{idx}] {email} — {num_sources} source(s), domains: {domains}\n"
+                self.archive_details.insert(tk.END, email_text)
+        elif entry.get('emails_found', 0) == 0:
+            self.archive_details.insert(tk.END, f"\n{'='*80}\nNO EMAILS FOUND\n{'='*80}\n")
+
+    
+    def clear_archive(self):
+        """Clear the entire archive"""
+        if messagebox.askyesno("Clear Archive", "Are you sure you want to clear all archive data?"):
+            self.archive_data = []
+            if os.path.exists(self.archive_file):
+                os.remove(self.archive_file)
+            self.refresh_archive_display()
+            self.archive_details.delete(1.0, tk.END)
+            messagebox.showinfo("Archive Cleared", "Archive has been cleared")
+
+    def email_selected_archive_to_address(self):
+        """Compose and send the selected archive details to a custom email address"""
+        selection = self.archive_tree.selection()
+        if not selection:
+            messagebox.showwarning("No Selection", "Please select an archive entry in the list first.")
+            return
+
+        item_id = selection[0]
+        item = self.archive_tree.item(item_id)
+        try:
+            archive_id = int(item['text'])
+        except Exception:
+            messagebox.showerror("Error", "Could not determine the selected archive ID.")
+            return
+
+        entry = next((e for e in self.archive_data if e['id'] == archive_id), None)
+        if not entry:
+            messagebox.showerror("Error", "Archive entry not found.")
+            return
+
+        # Build a summary text of the selected archive to send
+        all_results = entry.get('all_results', entry.get('results', []))
+        extracted_emails = entry.get('extracted_emails', {})
+        
+        # Build URL-to-emails mapping for quick lookup
+        url_to_emails = {}
+        for email, info in extracted_emails.items():
+            for source_url in info.get('sources', []):
+                if source_url not in url_to_emails:
+                    url_to_emails[source_url] = []
+                url_to_emails[source_url].append(email)
+        
+        summary_lines = [
+            f"JobGoblin - Archive ID {entry['id']}",
+            f"Date: {datetime.fromisoformat(entry['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}",
+            f"Keywords: {', '.join(entry.get('keywords', []))}",
+            f"Locations: {', '.join(entry.get('locations', []))}" if entry.get('locations') else "Locations: N/A",
+            f"Engines: {', '.join(entry.get('engines', []))}",
+            f"Jobs Found: {entry.get('jobs_found', 0)}",
+            f"Emails Found: {entry.get('emails_found', 0)}",
+            "",
+            "="*80,
+            "Results:",
+            "="*80,
+            "",
+        ]
+        for idx, result in enumerate(all_results, 1):
+            title = result.get('title', 'No Title')
+            url = result.get('url', 'N/A')
+            engine = result.get('engine', 'N/A')
+            summary_lines.append(f"[{idx}] {title}\nURL: {url}\nEngine: {engine}")
+            
+            # Add emails found from this URL
+            if url in url_to_emails:
+                emails_list = url_to_emails[url]
+                summary_lines.append(f"📧 Emails: {', '.join(emails_list)}")
+            
+            summary_lines.append("")
+
+        archive_summary = "\n".join(summary_lines)
+
+        # Compose dialog with custom recipient
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Job Goblin Email Sender")
+        dialog.resizable(True, True)
+        dialog.minsize(600, 650)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (600 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (650 // 2)
+        dialog.geometry(f"600x650+{x}+{y}")
+
+        ttk_boot.Label(dialog, text="📧 Job Goblin Email Sender", font=("Helvetica", 12, "bold")).pack(pady=8)
+        ttk_boot.Label(dialog, text=f"Archive ID {archive_id}", font=("Helvetica", 10)).pack(pady=(0,8))
+
+        ttk_boot.Label(dialog, text="Recipient Email:").pack(anchor=W, padx=20)
+        recipient_entry = ttk_boot.Entry(dialog, width=60)
+        recipient_entry.pack(fill=X, padx=20, pady=5)
+
+        ttk_boot.Label(dialog, text="Subject:").pack(anchor=W, padx=20)
+        subject_entry = ttk_boot.Entry(dialog, width=60)
+        subject_entry.pack(fill=X, padx=20, pady=5)
+
+        ttk_boot.Label(dialog, text="Message Body:").pack(anchor=W, padx=20)
+        body_text = scrolledtext.ScrolledText(dialog, wrap=tk.WORD, font=("Courier", 10), height=12)
+        body_text.pack(fill=BOTH, expand=YES, padx=20, pady=5)
+        body_text.insert(1.0, archive_summary)
+        self._bind_scroll_events(body_text)
+
+        btn_frame = ttk_boot.Frame(dialog)
+        btn_frame.pack(side=BOTTOM, fill=X, padx=20, pady=10)
+
+        def send_custom():
+            recipient = recipient_entry.get().strip()
+            subject = subject_entry.get().strip()
+            body = body_text.get(1.0, tk.END).strip()
+
+            if not recipient:
+                messagebox.showerror("Error", "Please enter a recipient email address")
+                dialog.destroy()
+                return
+            if '@' not in recipient or '.' not in recipient.split('@')[-1]:
+                messagebox.showerror("Error", "Please enter a valid email address")
+                dialog.destroy()
+                return
+            if not body:
+                messagebox.showerror("Error", "Please enter a message body")
+                dialog.destroy()
+                return
+
+            try:
+                # Reload .env settings into environment variables
+                self.reload_env_to_os()
+                
+                sender = EmailSender(verbose=True)
+                ok = sender.send_email(recipient, subject, body)
+                if ok:
+                    messagebox.showinfo("Email Sent", f"Archive {archive_id} sent to {recipient}")
+                else:
+                    messagebox.showerror("Email Error", "Failed to send email via configured provider.")
+            except Exception as e:
+                messagebox.showerror("Email Error", f"Failed to send email:\n{str(e)}")
+            finally:
+                # Always close the dialog after the send attempt
+                dialog.destroy()
+
+        send_btn = ttk_boot.Button(btn_frame, text="Send Email", command=send_custom, bootstyle="success", width=15)
+        send_btn.pack(side=LEFT, padx=8, pady=5)
+        cancel_btn = ttk_boot.Button(btn_frame, text="Cancel", command=dialog.destroy, bootstyle="danger", width=15)
+        cancel_btn.pack(side=LEFT, padx=8, pady=5)
+    
+    def send_emails_action(self):
+        """Send emails from the email tab"""
+        if not os.path.exists("output/found_emails.csv"):
+            messagebox.showinfo("No Emails", "No emails found. Run a scrape with email extraction first.")
+            return
+        
+        if messagebox.askyesno("Send Emails", "Send emails to extracted contacts?\n\nMaximum 50 emails per day will be sent."):
+            try:
+                # Reload .env settings before sending
+                self.reload_env_to_os()
+                
+                sender = EmailSender(verbose=True)
+                stats = sender.send_emails_from_csv("output/found_emails.csv", limit_per_run=50)
+                messagebox.showinfo("Email Sending Complete", f"Sent: {stats['sent']}\nFailed: {stats['failed']}\nSkipped: {stats['skipped']}")
+                self.refresh_email_stats()
+            except Exception as e:
+                messagebox.showerror("Email Error", f"Failed to send emails:\n{str(e)}")
+    
+    def view_email_csv(self):
+        """View the emails CSV file"""
+        csv_file = "output/found_emails.csv"
+        if not os.path.exists(csv_file):
+            messagebox.showinfo("No CSV", "No emails CSV found. Run a scrape with email extraction first.")
+            return
+        
+        self.email_list_text.delete(1.0, tk.END)
+        
+        try:
+            import csv
+            with open(csv_file, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                self.email_list_text.insert(tk.END, "📧 EXTRACTED EMAILS FROM CSV\n")
+                self.email_list_text.insert(tk.END, "="*80 + "\n\n")
+                
+                for idx, row in enumerate(reader, 1):
+                    self.email_list_text.insert(tk.END, f"[{idx}] {row.get('email', '')}\n")
+                    self.email_list_text.insert(tk.END, f"    Domains: {row.get('domains', '')}\n")
+                    self.email_list_text.insert(tk.END, f"    Job Titles: {row.get('job_titles', '')}\n")
+                    self.email_list_text.insert(tk.END, f"    First Seen: {row.get('first_seen', '')}\n\n")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to read CSV:\n{str(e)}")
+    
+    def refresh_email_stats(self):
+        """Refresh email statistics"""
+        try:
+            # Count emails in CSV
+            email_count = 0
+            if os.path.exists("output/found_emails.csv"):
+                import csv
+                with open("output/found_emails.csv", 'r', encoding='utf-8') as f:
+                    email_count = sum(1 for _ in csv.DictReader(f))
+            
+            # Get daily stats
+            email_mgr = EmailManager("output", verbose=False)
+            stats = email_mgr.get_daily_stats()
+            
+            self.email_stats_total.config(text=f"Total Emails: {email_count}")
+            self.email_stats_sent_today.config(text=f"Sent Today: {stats['emails_sent_today']}/{stats['daily_limit']}")
+            self.email_stats_remaining.config(text=f"Remaining: {stats['remaining']}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to refresh stats:\n{str(e)}")
+    
+    def reset_email_limit(self):
+        """Reset the daily email limit"""
+        if messagebox.askyesno("Reset Limit", "Reset the daily email limit?\n\nThis will allow you to send 50 more emails today."):
+            try:
+                email_mgr = EmailManager("output", verbose=False)
+                email_mgr.reset_daily_limit()
+                self.refresh_email_stats()
+                messagebox.showinfo("Limit Reset", "Daily email limit has been reset")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to reset limit:\n{str(e)}")
+    
+    def refresh_archive_dropdown(self):
+        """Refresh the archive dropdown with current archives"""
+        archive_options = []
+        for entry in reversed(self.archive_data):
+            archive_id = entry.get('id')
+            timestamp = datetime.fromisoformat(entry['timestamp']).strftime("%Y-%m-%d %H:%M")
+            keywords = ', '.join(entry.get('keywords', []))[:40]
+            label = f"[ID {archive_id}] {timestamp} - {keywords}"
+            archive_options.append(label)
+        
+        self.archive_dropdown['values'] = archive_options
+        
+        if archive_options:
+            self.archive_dropdown.current(0)  # Select first/most recent
+    
+    def load_archive_emails(self):
+        """Load emails from selected archive into email manager display"""
+        if not self.archive_dropdown.get():
+            messagebox.showwarning("No Selection", "Please select an archive first")
+            return
+        
+        # Extract archive ID from dropdown selection
+        dropdown_value = self.archive_dropdown.get()
+        try:
+            archive_id = int(dropdown_value.split('[ID ')[1].split(']')[0])
+        except:
+            messagebox.showerror("Error", "Could not parse archive ID")
+            return
+        
+        # Find the archive entry
+        entry = next((e for e in self.archive_data if e['id'] == archive_id), None)
+        if not entry:
+            messagebox.showerror("Error", "Archive not found")
+            return
+        
+        # Store current archive and emails
+        self.current_archive_entry = entry
+        self.current_archive_id = archive_id
+        self.current_archive_emails = entry.get('extracted_emails', {})
+        
+        # Display emails in the email list
+        self.email_list_text.delete(1.0, tk.END)
+        
+        if not self.current_archive_emails:
+            self.email_list_text.insert(tk.END, "No emails found in this archive")
+            return
+        
+        # Display all emails from archive
+        self.email_list_text.insert(tk.END, f"Emails from Archive ID {archive_id}\n")
+        self.email_list_text.insert(tk.END, f"Total: {len(self.current_archive_emails)} unique emails\n")
+        self.email_list_text.insert(tk.END, "="*80 + "\n\n")
+        
+        for idx, (email, info) in enumerate(self.current_archive_emails.items(), 1):
+            domains = ', '.join(list(info.get('domains', []))[:3])
+            sources = len(info.get('sources', []))
+            email_text = f"[{idx}] {email}\n    Domains: {domains}\n    Found in: {sources} job listings\n\n"
+            self.email_list_text.insert(tk.END, email_text)
+        
+        messagebox.showinfo("Loaded", f"Loaded {len(self.current_archive_emails)} emails from archive {archive_id}")
+    
+    def send_email_from_archive(self):
+        """Send emails to contacts from selected archive with custom message"""
+        if not self.current_archive_emails:
+            messagebox.showwarning("No Emails", "Please load emails from an archive first using 'Load Emails from Selected Archive'")
+            return
+        
+        # Create dialog to compose email
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Compose Email to Contacts")
+        dialog.geometry("700x600")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Center dialog
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (700 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (600 // 2)
+        dialog.geometry(f"700x600+{x}+{y}")
+        
+        ttk_boot.Label(dialog, text="📧 Email Message to Send", font=("Helvetica", 12, "bold")).pack(pady=10)
+        
+        # Recipient count
+        ttk_boot.Label(dialog, text=f"Recipients: {len(self.current_archive_emails)} emails", font=("Helvetica", 10)).pack(pady=5)
+        
+        # Subject
+        ttk_boot.Label(dialog, text="Subject:").pack(anchor=W, padx=20, pady=(10, 0))
+        subject_entry = ttk_boot.Entry(dialog, width=60)
+        subject_entry.insert(0, "JobGoblin - Lead Finder Results")
+        subject_entry.pack(padx=20, pady=5)
+        
+        # Message body
+        ttk_boot.Label(dialog, text="Message Body:").pack(anchor=W, padx=20, pady=(10, 0))
+        message_text = scrolledtext.ScrolledText(dialog, wrap=tk.WORD, font=("Courier", 10), height=15)
+        message_text.pack(padx=20, pady=5, fill=BOTH, expand=YES)
+        self._bind_scroll_events(message_text)
+        
+        # Default message
+        default_message = """Hello,
+
+We've identified potential job opportunities that match your criteria. 
+
+Please review the details below for more information.
+
+Best regards,
+JobGoblin Lead Finder
+"""
+        message_text.insert(1.0, default_message)
+        
+        # Button frame
+        button_frame = ttk_boot.Frame(dialog)
+        button_frame.pack(pady=10)
+        
+        def send():
+            subject = subject_entry.get().strip()
+            message = message_text.get(1.0, tk.END).strip()
+            
+            if not subject:
+                messagebox.showerror("Error", "Please enter a subject")
+                return
+            
+            if not message:
+                messagebox.showerror("Error", "Please enter a message body")
+                return
+            
+            # Check daily limit
+            email_mgr = EmailManager("output", verbose=False)
+            stats = email_mgr.get_daily_stats()
+            
+            email_list = list(self.current_archive_emails.keys())
+            emails_to_send = min(len(email_list), stats['remaining'])
+            
+            if emails_to_send == 0:
+                messagebox.showerror("Limit Reached", f"Daily limit reached. You can send {stats['remaining']} more emails today.")
+                return
+            
+            # Confirm sending
+            if not messagebox.askyesno("Confirm Send", f"Send email to {emails_to_send} contacts?\n\nLimit: {stats['emails_sent_today']}/{stats['daily_limit']} sent today"):
+                return
+            
+            # Send emails
+            dialog.destroy()
+            self.send_emails_to_list(email_list[:emails_to_send], subject, message)
+        
+        send_btn = ttk_boot.Button(button_frame, text="Send Email", command=send, bootstyle="success", width=18)
+        send_btn.pack(side=LEFT, padx=5)
+        
+        cancel_btn = ttk_boot.Button(button_frame, text="Cancel", command=dialog.destroy, bootstyle="danger", width=18)
+        cancel_btn.pack(side=LEFT, padx=5)
+    
+    def send_emails_to_list(self, email_list, subject, message):
+        """Send emails to a list of email addresses"""
+        # Reload .env settings before sending
+        self.reload_env_to_os()
+        
+        sender = EmailSender(verbose=True)
+        sent_count = 0
+        failed_count = 0
+        
+        for idx, email in enumerate(email_list, 1):
+            try:
+                self.update_status(f"📧 Sending email {idx}/{len(email_list)} to {email}...")
+                
+                success = sender.send_email(email, subject, message)
+                
+                if success:
+                    sent_count += 1
+                    email_mgr = EmailManager("output", verbose=False)
+                    email_mgr.mark_email_sent(email, email, subject, "success")
+                else:
+                    failed_count += 1
+                
+                self.root.update()
+                time.sleep(0.5)  # Throttle to avoid rate limiting
+            
+            except Exception as e:
+                failed_count += 1
+                if self.scraping:  # Only show error if still running
+                    self.update_status(f"❌ Failed to send to {email}: {str(e)}")
+        
+        # Show results
+        messagebox.showinfo("Send Complete", f"Sent: {sent_count}\nFailed: {failed_count}\n\nEmails have been tracked in your sending history.")
+        self.update_status("Ready")
+        self.refresh_email_stats()
+
+
+
+def main():
+    """Main entry point for GUI application"""
+    # Create themed root window with green/slime theme
+    root = ttk_boot.Window(themename="darkly")  # Dark base with ability to customize
+    
+    # Apply JobGoblin green/slime color scheme
+    style = ttk_boot.Style()
+    
+    # Override colors for slime/green aesthetic
+    colors = {
+        'bg': '#1a1a1a',           # Dark background
+        'fg': '#00FF00',           # Neon lime green
+        'accent': '#00DD00',       # Bright green accent
+        'highlight': '#00AA00',    # Darker green for highlights
+        'slime': '#0FFF50',        # Slime green
+    }
+    
+    app = JobScraperGUI(root)
+    
+    # Center window on screen
+    root.update_idletasks()
+    width = root.winfo_width()
+    height = root.winfo_height()
+    x = (root.winfo_screenwidth() // 2) - (width // 2)
+    y = (root.winfo_screenheight() // 2) - (height // 2)
+    root.geometry(f'{width}x{height}+{x}+{y}')
+    
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()

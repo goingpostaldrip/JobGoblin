@@ -1,0 +1,159 @@
+{
+  "proxies": [
+    {
+      "url": "http://52.203.62.58:80",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:20:54.876407",
+      "last_failure": "2025-12-13T23:47:27.124591"
+    },
+    {
+      "url": "http://43.135.36.240:2764",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:20:54.876818",
+      "last_failure": "2025-12-13T15:24:24.529835"
+    },
+    {
+      "url": "http://43.135.29.109:2764",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:20:54.877606",
+      "last_failure": "2025-12-13T23:46:45.419067"
+    },
+    {
+      "url": "http://134.209.29.120:8080",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:20:54.878137",
+      "last_failure": "2025-12-13T23:47:23.571530"
+    },
+    {
+      "url": "http://217.76.55.8:8888",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:21:53.424891",
+      "last_failure": "2025-12-13T23:46:00.699474"
+    },
+    {
+      "url": "http://52.203.62.58:80",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:21:53.425960"
+    },
+    {
+      "url": "http://52.188.28.218:3128",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:21:53.430138",
+      "last_failure": "2025-12-13T23:46:13.110908"
+    },
+    {
+      "url": "http://43.135.29.109:2764",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:21:53.431824"
+    },
+    {
+      "url": "http://198.199.86.11:80",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:21:53.433526",
+      "last_failure": "2025-12-13T15:24:40.958849"
+    },
+    {
+      "url": "http://217.76.55.8:8888",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:42:26.866446"
+    },
+    {
+      "url": "http://52.203.62.58:80",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:42:28.985227"
+    },
+    {
+      "url": "http://52.188.28.218:3128",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:42:29.153360"
+    },
+    {
+      "url": "http://43.135.29.109:2764",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:42:43.955063"
+    },
+    {
+      "url": "http://134.209.29.120:8080",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:43:33.723152"
+    },
+    {
+      "url": "http://158.160.81.185:1080",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T17:41:20.070178",
+      "last_failure": "2025-12-13T17:43:08.754135"
+    },
+    {
+      "url": "http://198.199.86.11:8080",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T17:41:35.223035",
+      "last_failure": "2025-12-13T17:43:12.833872"
+    },
+    {
+      "url": "http://134.209.29.120:8080",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T17:42:37.948298"
+    },
+    {
+      "url": "http://45.22.209.157:8888",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T17:42:51.130497",
+      "last_failure": "2025-12-13T17:43:23.219007"
+    }
+  ],
+  "updated": "2025-12-13T23:47:27.128378"
+}
