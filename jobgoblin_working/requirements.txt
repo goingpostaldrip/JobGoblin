@@ -1,0 +1,3 @@
+# requirements.txt for JobGoblin Working
+requests
+# Add any other dependencies needed for the new GUI and scrapers

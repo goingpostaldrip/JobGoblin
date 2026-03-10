@@ -1,0 +1,296 @@
+{
+  "proxies": [
+    {
+      "url": "http://52.203.62.58:80",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:20:54.876407",
+      "last_failure": "2026-03-09T23:53:36.353707"
+    },
+    {
+      "url": "http://43.135.36.240:2764",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:20:54.876818",
+      "last_failure": "2025-12-13T15:24:24.529835"
+    },
+    {
+      "url": "http://43.135.29.109:2764",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:20:54.877606",
+      "last_failure": "2026-03-09T23:54:09.227321"
+    },
+    {
+      "url": "http://134.209.29.120:8080",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:20:54.878137",
+      "last_failure": "2026-03-09T23:54:20.137658"
+    },
+    {
+      "url": "http://217.76.55.8:8888",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:21:53.424891",
+      "last_failure": "2026-03-09T23:53:11.321707"
+    },
+    {
+      "url": "http://52.203.62.58:80",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:21:53.425960"
+    },
+    {
+      "url": "http://52.188.28.218:3128",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:21:53.430138",
+      "last_failure": "2026-03-09T23:54:00.634934"
+    },
+    {
+      "url": "http://43.135.29.109:2764",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:21:53.431824"
+    },
+    {
+      "url": "http://198.199.86.11:80",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T15:21:53.433526",
+      "last_failure": "2025-12-13T15:24:40.958849"
+    },
+    {
+      "url": "http://217.76.55.8:8888",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:42:26.866446"
+    },
+    {
+      "url": "http://52.203.62.58:80",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:42:28.985227"
+    },
+    {
+      "url": "http://52.188.28.218:3128",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:42:29.153360"
+    },
+    {
+      "url": "http://43.135.29.109:2764",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:42:43.955063"
+    },
+    {
+      "url": "http://134.209.29.120:8080",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T15:43:33.723152"
+    },
+    {
+      "url": "http://158.160.81.185:1080",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T17:41:20.070178",
+      "last_failure": "2025-12-13T17:43:08.754135"
+    },
+    {
+      "url": "http://198.199.86.11:8080",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T17:41:35.223035",
+      "last_failure": "2025-12-13T17:43:12.833872"
+    },
+    {
+      "url": "http://134.209.29.120:8080",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2025-12-13T17:42:37.948298"
+    },
+    {
+      "url": "http://45.22.209.157:8888",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2025-12-13T17:42:51.130497",
+      "last_failure": "2025-12-13T17:43:23.219007"
+    },
+    {
+      "url": "http://43.135.29.109:2764",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2026-03-09T23:35:43.748282"
+    },
+    {
+      "url": "http://91.107.141.42:8081",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2026-03-09T23:36:51.033097",
+      "last_failure": "2026-03-09T23:51:19.400827"
+    },
+    {
+      "url": "http://193.168.173.136:443",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2026-03-09T23:36:52.704092",
+      "last_failure": "2026-03-09T23:51:43.275824"
+    },
+    {
+      "url": "http://91.107.141.42:8081",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2026-03-09T23:36:53.908094"
+    },
+    {
+      "url": "http://193.168.173.136:443",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2026-03-09T23:36:55.633092"
+    },
+    {
+      "url": "http://209.97.150.167:3128",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2026-03-09T23:37:03.523125",
+      "last_failure": "2026-03-09T23:40:02.928618"
+    },
+    {
+      "url": "http://159.203.61.169:3128",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2026-03-09T23:37:04.444123",
+      "last_failure": "2026-03-09T23:40:06.785656"
+    },
+    {
+      "url": "http://154.3.236.202:3128",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2026-03-09T23:37:05.308124",
+      "last_failure": "2026-03-09T23:51:47.306822"
+    },
+    {
+      "url": "http://154.3.236.202:3128",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2026-03-09T23:37:07.785123"
+    },
+    {
+      "url": "http://101.47.73.135:3128",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2026-03-09T23:37:12.624671",
+      "last_failure": "2026-03-09T23:45:46.438759"
+    },
+    {
+      "url": "http://194.213.18.200:443",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2026-03-09T23:38:13.182484",
+      "last_failure": "2026-03-09T23:52:31.329617"
+    },
+    {
+      "url": "http://45.136.131.47:8443",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2026-03-09T23:38:19.437539",
+      "last_failure": "2026-03-09T23:52:46.001613"
+    },
+    {
+      "url": "http://194.213.18.200:443",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2026-03-09T23:38:24.122537"
+    },
+    {
+      "url": "http://45.136.131.47:8443",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2026-03-09T23:38:25.561539"
+    },
+    {
+      "url": "http://46.183.25.8:443",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": false,
+      "added": "2026-03-09T23:38:54.127091",
+      "last_failure": "2026-03-09T23:53:00.876669"
+    },
+    {
+      "url": "http://46.183.25.8:443",
+      "type": "http",
+      "username": "",
+      "password": "",
+      "enabled": true,
+      "added": "2026-03-09T23:38:55.082131"
+    }
+  ],
+  "updated": "2026-03-09T23:54:20.137658"
+}

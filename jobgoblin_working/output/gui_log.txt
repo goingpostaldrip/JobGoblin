@@ -1,0 +1,29 @@
+2026-03-09 23:33:05,918 ERROR: [Indeed] Error (attempt 1): No module named 'requests'
+2026-03-09 23:33:05,921 ERROR: [Indeed] Error (attempt 2): No module named 'requests'
+2026-03-09 23:33:05,925 ERROR: [Indeed] Error (attempt 3): No module named 'requests'
+2026-03-09 23:33:05,929 ERROR: [Indeed] Failed after 3 attempts.
+2026-03-09 23:33:05,937 ERROR: [Greenhouse] Error (attempt 1): No module named 'requests'
+2026-03-09 23:33:05,939 ERROR: [Greenhouse] Error (attempt 2): No module named 'requests'
+2026-03-09 23:33:05,941 ERROR: [Greenhouse] Error (attempt 3): No module named 'requests'
+2026-03-09 23:33:05,945 ERROR: [Greenhouse] Failed after 3 attempts.
+2026-03-09 23:33:05,949 ERROR: [Lever] Error (attempt 1): No module named 'requests'
+2026-03-09 23:33:05,953 ERROR: [Lever] Error (attempt 2): No module named 'requests'
+2026-03-09 23:33:05,954 ERROR: [Lever] Error (attempt 3): No module named 'requests'
+2026-03-09 23:33:05,960 ERROR: [Lever] Failed after 3 attempts.
+2026-03-09 23:33:05,965 ERROR: [SimplyHired] Error (attempt 1): No module named 'requests'
+2026-03-09 23:33:05,970 ERROR: [SimplyHired] Error (attempt 2): No module named 'requests'
+2026-03-09 23:33:05,974 ERROR: [SimplyHired] Error (attempt 3): No module named 'requests'
+2026-03-09 23:33:05,979 ERROR: [SimplyHired] Failed after 3 attempts.
+2026-03-09 23:33:05,985 ERROR: [RemoteOK] Error (attempt 1): No module named 'requests'
+2026-03-09 23:33:05,989 ERROR: [RemoteOK] Error (attempt 2): No module named 'requests'
+2026-03-09 23:33:05,992 ERROR: [RemoteOK] Error (attempt 3): No module named 'requests'
+2026-03-09 23:33:05,994 ERROR: [RemoteOK] Failed after 3 attempts.
+2026-03-09 23:33:05,999 ERROR: [WeWorkRemotely] Error (attempt 1): No module named 'requests'
+2026-03-09 23:33:06,007 ERROR: [WeWorkRemotely] Error (attempt 2): No module named 'requests'
+2026-03-09 23:33:06,010 ERROR: [WeWorkRemotely] Error (attempt 3): No module named 'requests'
+2026-03-09 23:33:06,011 ERROR: [WeWorkRemotely] Failed after 3 attempts.
+2026-03-09 23:33:06,045 ERROR: [Remotive] Error (attempt 1): No module named 'requests'
+2026-03-09 23:33:06,060 ERROR: [Remotive] Error (attempt 2): No module named 'requests'
+2026-03-09 23:33:06,080 ERROR: [Remotive] Error (attempt 3): No module named 'requests'
+2026-03-09 23:33:06,082 ERROR: [Remotive] Failed after 3 attempts.
+2026-03-09 23:33:06,084 WARNING: No jobs found.
