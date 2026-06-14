@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карьерный коуч - Карта вакансий</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="./styles/vacancies_map.css"/>
+</head>
+<body>
+    <div class="container">
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="tabs">
+                <div class="tab active" id="tab-vacancies" onclick="window.location.href='./vacancies_map.html'">Карта вакансий</div>
+                <div class="tab inactive" id="tab-professions" onclick="window.location.href='./profession_map.html'">Карта профессий</div>
+                <div class="tab inactive" id="tab-career" onclick="window.location.href='./interview.html'">Индивидуальная карьера</div>
+            </div>
+
+            <div class="vacancy-count" id="vacancyCount"></div>
+      
+            <div class="legend">
+                <h4>Количество вакансий</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #6e3bce;"></div>
+                    <div class="legend-text">Меньше (2-3)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #9e3bce;"></div>
+                    <div class="legend-text">Среднее (4-5)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #c23bb4;"></div>
+                    <div class="legend-text">Много (6-7)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="./js/vacancies_map.js"></script>
+</body>
+</html>

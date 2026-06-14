@@ -1,0 +1,23 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/src:/app/src
+      - chroma_data:/app/chroma_persist
+    restart: unless-stopped
+  front:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./front:/usr/share/nginx/html:ro
+    restart: unless-stopped
+
+volumes:
+  chroma_data:
+  pg_data:

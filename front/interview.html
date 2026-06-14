@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карьерный коуч - Индивидуальная карьера</title>
+    <link rel="stylesheet" href="./styles/interview.css">
+</head>
+<body>
+    <div class="container">
+        <div class="career-container">
+
+            <div class="career-content" id="upload-screen">
+                <h1 class="welcome-title">Индивидуальная карьера</h1>
+
+                <p class="welcome-text">
+                    Добро пожаловать в ваш персональный карьерный навигатор! Здесь мы поможем вам
+                    <span class="highlight">раскрыть ваш потенциал</span> и найти идеальный путь развития
+                    в IT-индустрии на основе вашего опыта и навыков.
+                </p>
+          
+                <div class="upload-section">
+                    <h3 class="upload-title">📄 Загрузите ваше резюме</h3>
+                    <p class="upload-text">
+                        Для начала анализа вашей карьерной траектории загрузите ваше резюме в формате PDF или DOCX
+                    </p>
+
+                    <input type="file" id="cv-upload" class="file-input" accept=".pdf,.doc,.docx">
+                    <label for="cv-upload" class="file-label">Выбрать файл</label>
+
+                    <div class="file-info">
+                        Максимальный размер: 5MB
+                    </div>
+
+                    <div id="file-name" class="file-name"></div>
+                    <div id="success-message" class="success-message">
+                        ✅ Файл успешно загружен! Начинаем анализ...
+                    </div>
+                </div>
+
+                <div class="next-steps">
+                    <h4 class="next-steps-title">Что будет дальше?</h4>
+                    <p>После загрузки резюме мы проведём небольшое собеседование для уточнения деталей</p>
+                </div>
+
+                <ul class="features-list">
+                    <li>Определим ваш профессиональный контекст</li>
+                    <li>Уточним карьерные цели и амбиции</li>
+                    <li>Оценим текущий уровень навыков</li>
+                    <li>Составим персональный план развития</li>
+                    <li>Подберём подходящие вакансии</li>
+                </ul>
+            </div>
+
+            <!-- Экран собеседования -->
+            <div class="interview-container" id="interview-screen">
+                <div class="interview-header">
+                    <h1 class="interview-title">Карьерное собеседование</h1>
+                    <div class="interview-stage" id="stage-title">Этап 1: Определение контекста</div>
+                </div>
+
+                <div class="progress-bar">
+                    <div class="progress" id="progress-bar"></div>
+                </div>
+          
+                <div class="chat-container" id="chat-container">
+                    <div class="message bot-message">
+                        <div class="avatar bot-avatar">AI</div>
+                        <div class="message-content">
+                            <div class="message-text">
+                                Привет! Я помогу вам составить персональный карьерный план. Давайте начнём с небольшого собеседования.
+                                Это займёт всего 5-7 минут.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="typing-indicator" id="typing">
+                        <div class="avatar bot-avatar">AI</div>
+                        <div class="typing-dots">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-container">
+                    <input
+                        type="text"
+                        class="message-input"
+                        id="user-input"
+                        placeholder="Введите ваш ответ..."
+                        disabled
+                    >
+                    <button class="send-button" id="send-button" disabled>Отправить</button>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <div class="tab inactive" id="tab-vacancies" onclick="window.location.href='./vacancies_map.html'">Карта вакансий</div>
+                <div class="tab inactive" id="tab-professions" onclick="window.location.href='./profession_map.html'">Карта профессий</div>
+                <div class="tab active" id="tab-career" onclick="window.location.href='./interview.html'">Индивидуальная карьера</div>
+            </div>
+        </div>
+    </div>
+    <script src="./js/interview.js"></script>
+</body>
+</html>

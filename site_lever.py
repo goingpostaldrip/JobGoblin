@@ -23,30 +23,33 @@ def lever_search(keyword: str, location: str, max_results: int = 20, verbose: bo
     headers = {"User-Agent": USER_AGENT}
     if verbose:
         print(f"[lever] GET {url}")
-        attempts = 0
-        max_attempts = 3
-        while attempts < max_attempts:
-            try:
-                resp = get_with_proxy(url, headers=headers, timeout=30, use_proxy=True, verbose=verbose)
-                resp.raise_for_status()
-                break
-            except Exception as e:
-                if verbose:
-                    print(f"[lever] error (attempt {attempts+1}):", e)
-                # Try direct request if proxy fails
-                if attempts == 0:
-                    try:
-                        resp = requests.get(url, headers=headers, timeout=30)
-                        resp.raise_for_status()
-                        break
-                    except Exception as e2:
-                        if verbose:
-                            print(f"[lever] direct request error (attempt {attempts+1}):", e2)
-                # Adjust headers and retry
-                headers["User-Agent"] = USER_AGENT + f" Retry{attempts+1}"
-                attempts += 1
-        else:
-            return []
+    attempts = 0
+    max_attempts = 3
+    resp = None
+    while attempts < max_attempts:
+        try:
+            resp = get_with_proxy(url, headers=headers, timeout=30, use_proxy=True, verbose=verbose)
+            resp.raise_for_status()
+            break
+        except Exception as e:
+            if verbose:
+                print(f"[lever] error (attempt {attempts+1}):", e)
+            # Try direct request if proxy fails
+            if attempts == 0:
+                try:
+                    resp = requests.get(url, headers=headers, timeout=30)
+                    resp.raise_for_status()
+                    break
+                except Exception as e2:
+                    if verbose:
+                        print(f"[lever] direct request error (attempt {attempts+1}):", e2)
+            # Adjust headers and retry
+            headers["User-Agent"] = USER_AGENT + f" Retry{attempts+1}"
+            attempts += 1
+    else:
+        return []
+    if resp is None:
+        return []
     soup = BeautifulSoup(resp.text, "html.parser")
     out: List[SiteResult] = []
     for a in soup.select("a.posting-title"):

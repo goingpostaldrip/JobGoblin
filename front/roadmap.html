@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareerPath - ML Engineer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="./styles/roadmap.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">CareerPath</div>
+                <div class="sidebar-subtitle">ML Engineer</div>
+            </div>
+
+            <div class="nav-item active" data-tab="current-level">
+                <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+                <span class="nav-text">Текущий уровень</span>
+            </div>
+
+            <div class="nav-item" data-tab="learning-path">
+                <span class="nav-icon"><i class="fas fa-road"></i></span>
+                <span class="nav-text">Траектория обучения</span>
+            </div>
+
+            <div class="nav-item" data-tab="recommendations">
+                <span class="nav-icon"><i class="fas fa-lightbulb"></i></span>
+                <span class="nav-text">Рекомендации</span>
+            </div>
+
+            <div class="nav-item" data-tab="progress">
+                <span class="nav-icon"><i class="fas fa-tasks"></i></span>
+                <span class="nav-text">Прогресс</span>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="footer-item">
+                    <span class="nav-icon"><i class="fas fa-cog"></i></span>
+                    <span class="nav-text">Настройки</span>
+                </div>
+                <div class="footer-item">
+                    <span class="nav-icon"><i class="fas fa-question-circle"></i></span>
+                    <span class="nav-text">Поддержка</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div id="current-level" class="tab-content active">
+                <div class="content-header">
+                    <h1 class="welcome-message">Добро пожаловать, ML Engineer!</h1>
+                    <p class="welcome-subtitle">Анализ ваших навыков и позиции на рынке</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card fade-in">
+                        <div class="stat-title">ТЕКУЩИЙ УРОВЕНЬ</div>
+                        <div class="chart-container">
+                            <canvas id="levelChart"></canvas>
+                        </div>
+                        <div class="stat-description">Ваш уровень: Middle+. Средний по рынку: Middle</div>
+                    </div>
+
+                    <div class="stat-card fade-in">
+                        <div class="stat-title">СРЕДНЯЯ ОЦЕНКА НАВЫКОВ НА РЫНКЕ</div>
+                        <div class="chart-container">
+                            <canvas id="salaryChart"></canvas>
+                        </div>
+                        <div class="stat-description">Ваша ценность: 180-220K ₽. Средняя по рынку: 150-190K ₽</div>
+                    </div>
+                </div>
+
+                <div class="competencies-section">
+                    <h2 class="section-title">Ваши компетенции</h2>
+
+                    <div class="tabs">
+                        <div class="tab active" data-tab="soft-skills">Soft Skills</div>
+                        <div class="tab" data-tab="hard-skills">Hard Skills</div>
+                    </div>
+
+                    <div id="soft-skills" class="tab-content active">
+                        <div class="skills-fullscreen">
+                            <div class="skills-container">
+                                <div class="spider-chart-container fade-in">
+                                    <canvas id="softSkillsChart"></canvas>
+                                </div>
+
+                                <div class="skills-details">
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">Рациональность <span>70%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 70%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">Открытость <span>85%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 85%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">Упорство <span>90%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 90%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">Гибкость <span>75%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 75%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">Ответственность <span>95%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 95%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">Креативность <span>80%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 80%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">Коммуникабельность <span>75%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 75%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="hard-skills" class="tab-content">
+                        <div class="skills-fullscreen">
+                            <div class="skills-container">
+                                <div class="spider-chart-container fade-in">
+                                    <canvas id="hardSkillsChart"></canvas>
+                                </div>
+
+                                <div class="skills-details">
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">Python <span>85%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 85%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">ML Algorithms <span>78%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 78%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">Deep Learning <span>70%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 70%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">Data Processing <span>65%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 65%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">MLOps <span>60%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 60%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">Cloud Services <span>45%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 45%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="skill-item fade-in">
+                                        <div class="skill-name">Statistics <span>75%</span></div>
+                                        <div class="skill-level">
+                                            <div class="skill-progress" style="width: 75%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="learning-path" class="roadmap-container">
+                <div class="content-header">
+                    <h1 class="welcome-message">Ваша траектория обучения</h1>
+                    <p class="welcome-subtitle">Персональный план развития навыков</p>
+                </div>
+
+                <div class="roadmap-fullscreen">
+                    <h3 class="section-title">Дорожная карта развития</h3>
+                    <div class="roadmap-path">
+                        <svg class="roadmap-line" viewBox="0 0 1000 600" preserveAspectRatio="none">
+                            <path d="M 100,50 C 200,150 300,100 400,200 C 500,300 600,250 700,350 C 800,450 900,400 900,500" class="roadmap-line-path" />
+                        </svg>
+
+                        <div class="milestone-point point-1"></div>
+                        <div class="milestone-point point-2"></div>
+                        <div class="milestone-point point-3"></div>
+
+                        <div class="roadmap-milestone milestone-1 fade-in">
+                            <div class="milestone-title"><i class="fas fa-brain"></i> Основы ML</div>
+                            <div class="milestone-details">2 месяца • 3 курса</div>
+                            <div class="milestone-skills">
+                                <span class="skill-tag completed" data-skill="Python" data-courses="Python для Data Science|Основы статистики">Python</span>
+                                <span class="skill-tag completed" data-skill="Statistics" data-courses="Введение в статистику|Математика для ML">Statistics</span>
+                            </div>
+                        </div>
+
+                        <div class="roadmap-milestone milestone-2 fade-in">
+                            <div class="milestone-title"><i class="fas fa-project-diagram"></i> Алгоритмы ML</div>
+                            <div class="milestone-details">3 месяца • 4 курса</div>
+                            <div class="milestone-skills">
+                                <span class="skill-tag completed" data-skill="ML Algorithms" data-courses="Машинное обучение на Python|Практическое ML">ML Algorithms</span>
+                                <span class="skill-tag" data-skill="Data Processing" data-courses="Обработка данных|Feature Engineering">Data Processing</span>
+                            </div>
+                        </div>
+
+                        <div class="roadmap-milestone milestone-3 fade-in">
+                            <div class="milestone-title"><i class="fas fa-network-wired"></i> Deep Learning</div>
+                            <div class="milestone-details">3 месяца • 4 курса</div>
+                            <div class="milestone-skills">
+                                <span class="skill-tag" data-skill="Deep Learning" data-courses="Нейронные сети|Глубокое обучение">Deep Learning</span>
+                                <span class="skill-tag" data-skill="Computer Vision" data-courses="Компьютерное зрение|Обработка изображений">Computer Vision</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="gantt-fullscreen">
+                    <h3 class="section-title">План обучения на 12 месяцев</h3>
+
+                    <div class="gantt-header">
+                        <div class="gantt-months">
+                            <div class="gantt-month">Янв</div>
+                            <div class="gantt-month">Фев</div>
+                            <div class="gantt-month">Мар</div>
+                            <div class="gantt-month">Апр</div>
+                            <div class="gantt-month">Май</div>
+                            <div class="gantt-month">Июн</div>
+                            <div class="gantt-month">Июл</div>
+                            <div class="gantt-month">Авг</div>
+                            <div class="gantt-month">Сен</div>
+                            <div class="gantt-month">Окт</div>
+                            <div class="gantt-month">Ноя</div>
+                            <div class="gantt-month">Дек</div>
+                        </div>
+                    </div>
+
+                    <div class="gantt-grid">
+                        <div class="gantt-row">
+                            <div class="gantt-row-label">Python & Statistics</div>
+                            <div class="gantt-timeline">
+                                <div class="gantt-period" style="left: 0%; width: 16.6%;" data-course="Python для Data Science">Курс 1</div>
+                            </div>
+                        </div>
+
+                        <div class="gantt-row">
+                            <div class="gantt-row-label">ML Algorithms</div>
+                            <div class="gantt-timeline">
+                                <div class="gantt-period" style="left: 16.6%; width: 25%;" data-course="Машинное обучение">Курс 2</div>
+                            </div>
+                        </div>
+
+                        <div class="gantt-row">
+                            <div class="gantt-row-label">Deep Learning</div>
+                            <div class="gantt-timeline">
+                                <div class="gantt-period" style="left: 41.6%; width: 25%;" data-course="Нейронные сети">Курс 3</div>
+                            </div>
+                        </div>
+
+                        <div class="gantt-row">
+                            <div class="gantt-row-label">Computer Vision</div>
+                            <div class="gantt-timeline">
+                                <div class="gantt-period" style="left: 66.6%; width: 16.6%;" data-course="Обработка изображений">Курс 4</div>
+                            </div>
+                        </div>
+
+                        <div class="gantt-row">
+                            <div class="gantt-row-label">MLOps</div>
+                            <div class="gantt-timeline">
+                                <div class="gantt-period" style="left: 83.2%; width: 16.6%;" data-course="Деплой моделей">Курс 5</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="recommendations" class="recommendations-container">
+                <div class="content-header">
+                    <h1 class="welcome-message">Рекомендации для вас</h1>
+                    <p class="welcome-subtitle">Курсы и вакансии, подобранные на основе вашего профиля</p>
+                </div>
+
+                <div class="recommendations-fullscreen">
+                    <h2 class="section-title">Рекомендованные курсы</h2>
+                    <div class="horizontal-scroll">
+                        <div class="course-card fade-in">
+                            <div class="course-title">Машинное обучение на Python</div>
+                            <div class="course-platform">Coursera • Специализация</div>
+                            <div class="course-duration">⏱ 4 месяца • 🎓 95% релевантности</div>
+                            <div class="course-progress">
+                                <div class="course-progress-bar" style="width: 40%"></div>
+                            </div>
+                            <div class="stat-description">40% завершено</div>
+                        </div>
+
+                        <div class="course-card fade-in">
+                            <div class="course-title">Глубокое обучение</div>
+                            <div class="course-platform">DeepLearning.AI • Специализация</div>
+                            <div class="course-duration">⏱ 3 месяца • 🎓 92% релевантности</div>
+                            <div class="course-progress">
+                                <div class="course-progress-bar" style="width: 10%"></div>
+                            </div>
+                            <div class="stat-description">10% завершено</div>
+                        </div>
+
+                        <div class="course-card fade-in">
+                            <div class="course-title">MLOps: DevOps для машинного обучения</div>
+                            <div class="course-platform">Udacity • Наностепень</div>
+                            <div class="course-duration">⏱ 2 месяца • 🎓 88% релевантности</div>
+                            <div class="course-progress">
+                                <div class="course-progress-bar" style="width: 0%"></div>
+                            </div>
+                            <div class="stat-description">Не начат</div>
+                        </div>
+
+                        <div class="course-card fade-in">
+                            <div class="course-title">Обработка естественного языка</div>
+                            <div class="course-platform">Coursera • Курс</div>
+                            <div class="course-duration">⏱ 1 месяц • 🎓 85% релевантности</div>
+                            <div class="course-progress">
+                                <div class="course-progress-bar" style="width: 0%"></div>
+                            </div>
+                            <div class="stat-description">Не начат</div>
+                        </div>
+
+                        <div class="course-card fade-in">
+                            <div class="course-title">Computer Vision</div>
+                            <div class="course-platform">Stanford Online • Курс</div>
+                            <div class="course-duration">⏱ 2 месяца • 🎓 90% релевантности</div>
+                            <div class="course-progress">
+                                <div class="course-progress-bar" style="width: 5%"></div>
+                            </div>
+                            <div class="stat-description">5% завершено</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recommendations-fullscreen">
+                    <h2 class="section-title">Подходящие вакансии</h2>
+                    <div class="horizontal-scroll">
+                        <div class="vacancy-card fade-in">
+                            <div class="vacancy-title">ML Engineer</div>
+                            <div class="vacancy-company">Yandex • Москва</div>
+                            <div class="vacancy-salary">200 000 - 250 000 ₽</div>
+                            <div class="vacancy-tags">
+                                <span class="vacancy-tag">Python</span>
+                                <span class="vacancy-tag">TensorFlow</span>
+                                <span class="vacancy-tag">ML</span>
+                            </div>
+                        </div>
+
+                        <div class="vacancy-card fade-in">
+                            <div class="vacancy-title">Data Scientist</div>
+                            <div class="vacancy-company">Sber • Москва</div>
+                            <div class="vacancy-salary">180 000 - 230 000 ₽</div>
+                            <div class="vacancy-tags">
+                                <span class="vacancy-tag">Python</span>
+                                <span class="vacancy-tag">PyTorch</span>
+                                <span class="vacancy-tag">SQL</span>
+                            </div>
+                        </div>
+
+                        <div class="vacancy-card fade-in">
+                            <div class="vacancy-title">Junior ML Engineer</div>
+                            <div class="vacancy-company">Ozon • Санкт-Петербург</div>
+                            <div class="vacancy-salary">150 000 - 190 000 ₽</div>
+                            <div class="vacancy-tags">
+                                <span class="vacancy-tag">Python</span>
+                                <span class="vacancy-tag">Scikit-learn</span>
+                                <span class="vacancy-tag">Data Analysis</span>
+                            </div>
+                        </div>
+
+                        <div class="vacancy-card fade-in">
+                            <div class="vacancy-title">AI Researcher</div>
+                            <div class="vacancy-company">MTS AI • Москва</div>
+                            <div class="vacancy-salary">220 000 - 280 000 ₽</div>
+                            <div class="vacancy-tags">
+                                <span class="vacancy-tag">Python</span>
+                                <span class="vacancy-tag">Research</span>
+                                <span class="vacancy-tag">Deep Learning</span>
+                            </div>
+                        </div>
+
+                        <div class="vacancy-card fade-in">
+                            <div class="vacancy-title">Computer Vision Engineer</div>
+                            <div class="vacancy-company">VisionLabs • Москва</div>
+                            <div class="vacancy-salary">190 000 - 240 000 ₽</div>
+                            <div class="vacancy-tags">
+                                <span class="vacancy-tag">Python</span>
+                                <span class="vacancy-tag">OpenCV</span>
+                                <span class="vacancy-tag">CNN</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="progress" class="progress-container">
+                <div class="progress-header">
+                    <h1 class="progress-title">Ваш прогресс</h1>
+                    <p class="welcome-subtitle">Мониторинг обучения и достижения целей</p>
+                </div>
+
+                <div class="progress-stats">
+                    <div class="progress-card fade-in">
+                        <div class="stat-title">ОБЩИЙ ПРОГРЕСС</div>
+                        <div class="progress-percentage">42%</div>
+                        <div class="progress-label">Выполнено 5 из 12 навыков</div>
+                    </div>
+
+                    <div class="progress-card fade-in">
+                        <div class="stat-title">АКТИВНОСТЬ</div>
+                        <div class="progress-percentage">78%</div>
+                        <div class="progress-label">Регулярное обучение</div>
+                    </div>
+
+                    <div class="progress-card fade-in">
+                        <div class="stat-title">ДО ЦЕЛИ</div>
+                        <div class="progress-percentage">8 мес</div>
+                        <div class="progress-label">При текущем темпе</div>
+                    </div>
+                </div>
+
+                <div class="calendar-fullscreen">
+                    <div class="calendar-header">
+                        <h3 class="calendar-title">Сентябрь 2023 - Детальная активность</h3>
+                        <div class="calendar-nav">
+                            <button class="calendar-nav-btn"><i class="fas fa-chevron-left"></i></button>
+                            <button class="calendar-nav-btn"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="calendar-grid">
+                        <div class="calendar-day-header">1</div>
+                        <div class="calendar-day-header">2</div>
+                        <div class="calendar-day-header">3</div>
+                        <div class="calendar-day-header">4</div>
+                        <div class="calendar-day-header">5</div>
+                        <div class="calendar-day-header">6</div>
+                        <div class="calendar-day-header">7</div>
+                        <div class="calendar-day-header">8</div>
+                        <div class="calendar-day-header">9</div>
+                        <div class="calendar-day-header">10</div>
+                        <div class="calendar-day-header">11</div>
+                        <div class="calendar-day-header">12</div>
+                        <div class="calendar-day-header">13</div>
+                        <div class="calendar-day-header">14</div>
+                        <div class="calendar-day-header">15</div>
+                        <div class="calendar-day-header">16</div>
+                        <div class="calendar-day-header">17</div>
+                        <div class="calendar-day-header">18</div>
+                        <div class="calendar-day-header">19</div>
+                        <div class="calendar-day-header">20</div>
+                        <div class="calendar-day-header">21</div>
+                        <div class="calendar-day-header">22</div>
+                        <div class="calendar-day-header">23</div>
+                        <div class="calendar-day-header">24</div>
+                        <div class="calendar-day-header">25</div>
+                        <div class="calendar-day-header">26</div>
+                        <div class="calendar-day-header">27</div>
+                        <div class="calendar-day-header">28</div>
+                        <div class="calendar-day-header">29</div>
+                        <div class="calendar-day-header">30</div>
+                        <div class="calendar-day-header">31</div>
+
+                        <div class="calendar-day active has-activity">1</div>
+                        <div class="calendar-day active has-activity">2</div>
+                        <div class="calendar-day">3</div>
+                        <div class="calendar-day active has-activity">4</div>
+                        <div class="calendar-day active has-activity">5</div>
+                        <div class="calendar-day active has-activity">6</div>
+                        <div class="calendar-day">7</div>
+                        <div class="calendar-day active has-activity">8</div>
+                        <div class="calendar-day active has-activity">9</div>
+                        <div class="calendar-day active has-activity">10</div>
+                        <div class="calendar-day">11</div>
+                        <div class="calendar-day active has-activity">12</div>
+                        <div class="calendar-day active has-activity">13</div>
+                        <div class="calendar-day">14</div>
+                        <div class="calendar-day">15</div>
+                        <div class="calendar-day active has-activity">16</div>
+                        <div class="calendar-day active has-activity">17</div>
+                        <div class="calendar-day active has-activity">18</div>
+                        <div class="calendar-day">19</div>
+                        <div class="calendar-day active has-activity">20</div>
+                        <div class="calendar-day active has-activity">21</div>
+                        <div class="calendar-day">22</div>
+                        <div class="calendar-day">23</div>
+                        <div class="calendar-day active has-activity">24</div>
+                        <div class="calendar-day active has-activity">25</div>
+                        <div class="calendar-day active has-activity">26</div>
+                        <div class="calendar-day">27</div>
+                        <div class="calendar-day active has-activity">28</div>
+                        <div class="calendar-day active has-activity">29</div>
+                        <div class="calendar-day">30</div>
+                        <div class="calendar-day">31</div>
+                    </div>
+                </div>
+
+                <div class="goals-container fade-in">
+                    <h3 class="section-title">Цели на месяц</h3>
+
+                    <div class="goal-item">
+                        <div class="goal-header">
+                            <div class="goal-title">Завершить курс "Машинное обучение на Python"</div>
+                            <div class="goal-value">60%</div>
+                        </div>
+                        <div class="goal-progress">
+                            <div class="goal-progress-bar" style="width: 60%"></div>
+                        </div>
+                    </div>
+
+                    <div class="goal-item">
+                        <div class="goal-header">
+                            <div class="goal-title">Изучить основы Deep Learning</div>
+                            <div class="goal-value">25%</div>
+                        </div>
+                        <div class="goal-progress">
+                            <div class="goal-progress-bar" style="width: 25%"></div>
+                        </div>
+                    </div>
+
+                    <div class="goal-item">
+                        <div class="goal-header">
+                            <div class="goal-title">Решить 20 задач на Kaggle</div>
+                            <div class="goal-value">45%</div>
+                        </div>
+                        <div class="goal-progress">
+                            <div class="goal-progress-bar" style="width: 45%"></div>
+                        </div>
+                    </div>
+
+                    <div class="goal-item">
+                        <div class="goal-header">
+                            <div class="goal-title">Освоить MLOps основы</div>
+                            <div class="goal-value">10%</div>
+                        </div>
+                        <div class="goal-progress">
+                            <div class="goal-progress-bar" style="width: 10%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="course-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-skill-title">Курсы по навыку</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div id="modal-courses-list">
+            </div>
+        </div>
+    </div>
+
+    <script src="./js/roadmap.js"></script>
+</body>
+</html>

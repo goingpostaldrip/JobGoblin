@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карьерный коуч - Карта профессий</title>
+    <link rel="stylesheet" href="./styles/profession_map.css">
+</head>
+<body>
+    <div class="header">
+        <h1>Карта профессий</h1>
+        <p>Исследуйте различные профессии, их требования и пути развития</p>
+    </div>
+
+    <div class="tabs">
+        <div class="tab inactive" id="tab-vacancies" onclick="window.location.href='./vacancies_map.html'">Карта вакансий</div>
+        <div class="tab active" id="tab-professions" onclick="window.location.href='./profession_map.html'">Карта профессий</div>
+        <div class="tab inactive" id="tab-career" onclick="window.location.href='./interview.html'">Индивидуальная карьера</div>
+    </div>
+
+    <div class="professions-grid" id="professionsGrid">
+        <!-- Карточки профессий будут добавлены через JavaScript -->
+    </div>
+
+
+    <!-- Оверлей и детали профессии -->
+    <div class="overlay" id="overlay"></div>
+
+    <div class="profession-detail" id="professionDetail">
+        <button class="close-detail" id="closeDetail">×</button>
+        <div class="detail-header">
+            <div class="detail-icon" id="detailIcon"></div>
+            <div class="detail-title-container">
+                <h2 class="detail-title" id="detailTitle"></h2>
+                <div class="detail-subtitle" id="detailSubtitle"></div>
+            </div>
+        </div>
+        <div class="detail-content">
+            <div class="detail-section">
+                <h3>Описание профессии</h3>
+                <p id="detailDescription"></p>
+            </div>
+            <div class="detail-section">
+                <h3>Ключевые навыки</h3>
+                <div class="skills-grid" id="detailSkills"></div>
+            </div>
+            <div class="detail-section">
+                <h3>Инструменты и технологии</h3>
+                <div class="skills-grid" id="detailTools"></div>
+            </div>
+            <div class="detail-section">
+                <h3>Roadmap развития</h3>
+                <div id="detailRoadmap"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для навыка -->
+    <div class="skill-modal" id="skillModal">
+        <button class="close-modal" id="closeSkillModal">×</button>
+        <div class="skill-modal-header">
+            <div class="skill-modal-icon" id="skillModalIcon"></div>
+            <h2 class="skill-modal-title" id="skillModalTitle"></h2>
+        </div>
+        <div class="skill-modal-content">
+            <div class="skill-modal-description" id="skillModalDescription"></div>
+            <div class="courses-title">Рекомендованные курсы:</div>
+            <div class="courses-list" id="skillModalCourses"></div>
+        </div>
+    </div>
+
+    <script src="./js/profession_map.js"></script>
+</body>
+</html>

@@ -32,6 +32,7 @@ def weworkremotely_search(keyword: str, location: str = "", max_results: int = 2
     
     attempts = 0
     max_attempts = 3
+    resp = None
     while attempts < max_attempts:
         try:
             resp = get_with_proxy(url, headers=headers, timeout=30, use_proxy=True, verbose=verbose)
@@ -53,6 +54,8 @@ def weworkremotely_search(keyword: str, location: str = "", max_results: int = 2
             headers["User-Agent"] = USER_AGENT + f" Retry{attempts+1}"
             attempts += 1
     else:
+        return []
+    if resp is None:
         return []
     
     soup = BeautifulSoup(resp.text, 'html.parser')  # Use html parser
