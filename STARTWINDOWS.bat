@@ -1,10 +1,11 @@
 @echo off
-REM Launch Job Scraper Ultimate GUI
+REM JobGoblin - Windows Launcher
+REM This script sets up the environment and launches the GUI
 
-TITLE Job Scraper Ultimate - GUI Launcher
+TITLE JobGoblin - GUI Launcher
 
 ECHO =========================================
-ECHO  Job Scraper Ultimate - GUI Edition
+ECHO  JobGoblin - GUI Launcher
 ECHO =========================================
 ECHO.
 
@@ -32,7 +33,7 @@ IF NOT EXIST output (
     MKDIR output
 )
 
-ECHO Launching GUI...
+ECHO Launching JobGoblin GUI...
 ECHO.
 
 python gui_app.py

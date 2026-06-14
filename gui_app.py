@@ -72,6 +72,8 @@ class JobScraperGUI:
         
         # Initialize archive data
         self.archive_data = []
+        # Email sender instance using SMTP
+        self.email_sender = EmailSender(verbose=True)
         
         # Start background DDG proxy server
         self.start_ddg_proxy_server()
@@ -85,6 +87,25 @@ class JobScraperGUI:
         
         # Register cleanup on app close
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def send_email_to_lead(self, to_email, subject, body):
+        """Send email using SMTP settings via EmailSender."""
+        # EmailSender expects a CSV file, so create a temporary CSV with one email
+        import csv, tempfile
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, newline='', suffix='.csv') as tmp:
+            writer = csv.writer(tmp)
+            writer.writerow(['email'])
+            writer.writerow([to_email])
+            tmp_path = tmp.name
+        result = self.email_sender.send_emails_from_csv(
+            csv_file=tmp_path,
+            subject=subject,
+            message_template=body,
+            dry_run=False,
+            limit_per_run=1
+        )
+        os.remove(tmp_path)
+        return result
     
     def disable_app(self):
         """Disable all app widgets"""
@@ -241,7 +262,7 @@ class JobScraperGUI:
         # Right panel - Results (resizable panes so progress/results can be smaller)
         right_panel = ttk_boot.Frame(self.scraper_tab)
         right_panel.pack(side=RIGHT, fill=BOTH, expand=YES, padx=(2, 8), pady=8)
-        right_pane = ttk.Panedwindow(right_panel, orient=VERTICAL)
+        right_pane = ttk.PanedWindow(right_panel, orient=VERTICAL)
         right_pane.pack(fill=BOTH, expand=YES)
         
         # === LEFT PANEL WIDGETS ===

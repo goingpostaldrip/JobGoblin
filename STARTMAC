@@ -1,8 +1,9 @@
 #!/bin/bash
-# Launch Job Scraper Ultimate GUI
+# JobGoblin - macOS Launcher
+# This script sets up the environment and launches the GUI
 
 echo "========================================="
-echo " Job Scraper Ultimate - GUI Edition"
+echo " JobGoblin - GUI Launcher"
 echo "========================================="
 echo ""
 
@@ -13,7 +14,7 @@ if [ ! -d ".venv" ]; then
     python3 -m venv .venv
     
     if [ $? -ne 0 ]; then
-        echo "Error: Python not found. Please install Python 3.8 or later."
+        echo "Error: Python 3 not found. Please install Python 3.8 or later."
         exit 1
     fi
     
@@ -28,7 +29,7 @@ fi
 # Create output directory
 mkdir -p output
 
-echo "Launching GUI..."
+echo "Launching JobGoblin GUI..."
 echo ""
 
 python gui_app.py
